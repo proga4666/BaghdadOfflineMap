@@ -1,0 +1,27 @@
+{
+  "version": 8,
+  "name": "Google Satellite Hybrid",
+  "sources": {
+    "google-satellite": {
+      "type": "raster",
+      "tiles": [
+        "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+        "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+        "https://mt2.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+        "https://mt3.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+      ],
+      "tileSize": 256,
+      "attribution": "© Google Satellite",
+      "maxzoom": 21
+    }
+  },
+  "layers": [
+    {
+      "id": "google-satellite-layer",
+      "type": "raster",
+      "source": "google-satellite",
+      "minzoom": 0,
+      "maxzoom": 22
+    }
+  ]
+}

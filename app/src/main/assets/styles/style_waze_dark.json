@@ -1,25 +1,25 @@
 {
   "version": 8,
-  "name": "Waze Dark High-Res",
+  "name": "Google Maps Clean Road Style",
   "sources": {
-    "carto-dark": {
+    "google-clean-roads": {
       "type": "raster",
       "tiles": [
-        "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-        "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-        "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-        "https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
+        "https://mt0.google.com/vt/lyrs=r&x={x}&y={y}&z={z}",
+        "https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}",
+        "https://mt2.google.com/vt/lyrs=r&x={x}&y={y}&z={z}",
+        "https://mt3.google.com/vt/lyrs=r&x={x}&y={y}&z={z}"
       ],
       "tileSize": 256,
-      "attribution": "© CARTO, © OpenStreetMap contributors",
-      "maxzoom": 20
+      "attribution": "© Google Maps",
+      "maxzoom": 21
     }
   },
   "layers": [
     {
-      "id": "carto-dark-layer",
+      "id": "google-clean-roads-layer",
       "type": "raster",
-      "source": "carto-dark",
+      "source": "google-clean-roads",
       "minzoom": 0,
       "maxzoom": 22
     }
