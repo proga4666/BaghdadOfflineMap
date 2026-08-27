@@ -202,6 +202,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private var searchJob: kotlinx.coroutines.Job? = null
 
+    private var isProgrammaticTextChange = false
+
     private fun setupSearch() {
         searchAdapter = PlaceSearchAdapter { place ->
             onPlaceSelected(place)
@@ -256,6 +258,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         binding.etSearchPlaces.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (isProgrammaticTextChange || !binding.etSearchPlaces.hasFocus()) {
+                    return
+                }
                 val query = s?.toString() ?: ""
                 searchJob?.cancel()
                 if (query.isNotEmpty()) {
@@ -305,7 +310,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
         binding.btnClearSearch.setOnClickListener {
             if (binding.etSearchPlaces.text.isNotEmpty()) {
+                isProgrammaticTextChange = true
                 binding.etSearchPlaces.text.clear()
+                isProgrammaticTextChange = false
                 showSearchHistoryOrSuggestions("")
             } else {
                 hideSearchDropdown()
@@ -314,9 +321,14 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     private fun onPlaceSelected(place: SearchPlace) {
+        searchJob?.cancel()
         searchHistoryRepo.addRecentSearch(place)
-        hideSearchDropdown()
+        
+        isProgrammaticTextChange = true
         binding.etSearchPlaces.setText(place.nameEn)
+        isProgrammaticTextChange = false
+
+        hideSearchDropdown()
         
         // 1. Drop selection pin on map
         selectedPinLocation = place.coordinates
@@ -341,7 +353,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     private fun hideSearchDropdown() {
-        binding.cardSearchResults.hideAnimated()
+        searchJob?.cancel()
+        binding.cardSearchResults.visibility = View.GONE
+        binding.cardSearchResults.clearAnimation()
         binding.layoutSearchHistoryHeader.visibility = View.GONE
         binding.containerFloatingButtons.showAnimated()
         if (mapEngine.isTrackingSuspended) {
