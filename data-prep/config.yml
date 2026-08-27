@@ -1,0 +1,6 @@
+graphhopper:
+  datareader.file: /Users/awsbasim/.gemini/antigravity/scratch/BaghdadOfflineMap/data-prep/Baghdad.osm.pbf
+  graph.location: /Users/awsbasim/.gemini/antigravity/scratch/BaghdadOfflineMap/data-prep/output/routes/baghdad-gh
+  graph.flag_encoders: car,bike,foot
+  graph.dataaccess: MMAP
+  prepare.ch.weightings: no

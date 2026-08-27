@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rendertheme xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" map-background="#F3F3ED"
+    map-background-outside="#E5E5DE" version="5" xmlns="http://mapsforge.org/renderTheme"
+    xsi:schemaLocation="http://mapsforge.org/renderTheme https://raw.githubusercontent.com/mapsforge/mapsforge/master/resources/renderTheme.xsd">
+
+    <!-- 1. Land Base -->
+    <rule e="way" k="natural" v="nosea|land">
+        <area fill="#F3F3ED" />
+    </rule>
+
+    <!-- 2. Water / Tigris River (Clean Calm Pastel Blue) -->
+    <rule e="way" k="waterway" v="riverbank|dock">
+        <area fill="#8DC2EA" />
+    </rule>
+    <rule e="way" k="natural" v="water|lake">
+        <area fill="#8DC2EA" />
+    </rule>
+    <rule e="way" k="landuse" v="reservoir|basin">
+        <area fill="#8DC2EA" />
+    </rule>
+    <rule e="way" k="waterway" v="river">
+        <line stroke="#8DC2EA" stroke-width="4.0" stroke-linecap="round" />
+        <pathText k="name" font-size="12" font-style="bold" fill="#1A5A8E" stroke="#FFFFFF" stroke-width="2.0" zoom-min="12" />
+    </rule>
+    <rule e="way" k="waterway" v="canal|stream|drain">
+        <line stroke="#8DC2EA" stroke-width="1.8" stroke-linecap="round" />
+    </rule>
+
+    <!-- 3. Parks, Forests & Islands (Clean Flat Green - Waze Style) -->
+    <rule e="way" k="leisure" v="park|garden|pitch|playground|nature_reserve">
+        <area fill="#BCE0B8" />
+    </rule>
+    <rule e="way" k="landuse" v="grass|forest|meadow|orchard|village_green|cemetery">
+        <area fill="#BCE0B8" />
+    </rule>
+    <rule e="way" k="natural" v="wood|scrub|grassland">
+        <area fill="#BCE0B8" />
+    </rule>
+
+    <!-- 4. Urban Blocks & Buildings (Clean Soft Warm Sand) -->
+    <rule e="way" k="landuse" v="residential|commercial|retail" zoom-min="13">
+        <area fill="#EBE7DE" />
+    </rule>
+    <rule e="way" k="building" v="*" zoom-min="15">
+        <area fill="#DDD7CB" />
+    </rule>
+
+    <!-- 5. Major Highways & Freeways (Warm Orange/Gold - Waze Style) -->
+    <rule e="way" k="highway" v="motorway|trunk|motorway_link|trunk_link">
+        <line stroke="#DDA843" stroke-width="3.6" stroke-linecap="round" />
+        <line stroke="#FFC95C" stroke-width="2.6" stroke-linecap="round" />
+        <pathText k="name" font-size="11" font-style="bold" fill="#2D3748" stroke="#FFFFFF" stroke-width="2.2" />
+    </rule>
+
+    <!-- 6. Primary & Secondary Roads (Clean White with Soft Border) -->
+    <rule e="way" k="highway" v="primary|primary_link|secondary|secondary_link">
+        <line stroke="#C8C2B4" stroke-width="2.6" stroke-linecap="round" />
+        <line stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" />
+        <pathText k="name" font-size="10" fill="#2D3748" stroke="#FFFFFF" stroke-width="2.0" />
+    </rule>
+
+    <!-- 7. Tertiary Neighborhood Avenues -->
+    <rule e="way" k="highway" v="tertiary|unclassified">
+        <line stroke="#D5D0C4" stroke-width="1.8" stroke-linecap="round" />
+        <line stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" />
+        <pathText k="name" font-size="9" fill="#4A5568" stroke="#FFFFFF" stroke-width="1.8" zoom-min="14" />
+    </rule>
+
+    <!-- 8. Residential Streets (Thin Clean White Lines) -->
+    <rule e="way" k="highway" v="residential|living_street|service|road" zoom-min="13">
+        <line stroke="#DDD9CE" stroke-width="1.2" stroke-linecap="round" />
+        <line stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" />
+        <pathText k="name" font-size="8" fill="#718096" stroke="#FFFFFF" stroke-width="1.5" zoom-min="15" />
+    </rule>
+
+    <!-- 9. Places & Neighborhood Labels -->
+    <rule e="node" k="place" v="city|suburb|neighbourhood|quarter">
+        <caption k="name" font-size="13" font-style="bold" fill="#1E293B" stroke="#FFFFFF" stroke-width="2.5" />
+    </rule>
+
+    <!-- 10. Clean Minimalist POIs -->
+    <rule e="any" k="amenity" v="hospital|clinic|pharmacy" zoom-min="15">
+        <circle r="3.5" fill="#EF4444" stroke="#FFFFFF" stroke-width="0.8" />
+        <caption k="name" font-size="8" fill="#DC2626" stroke="#FFFFFF" stroke-width="1.5" zoom-min="16" />
+    </rule>
+
+    <rule e="any" k="amenity" v="place_of_worship|mosque" zoom-min="15">
+        <circle r="3.5" fill="#059669" stroke="#FFFFFF" stroke-width="0.8" />
+        <caption k="name" font-size="8" fill="#059669" stroke="#FFFFFF" stroke-width="1.5" zoom-min="16" />
+    </rule>
+
+    <rule e="any" k="amenity" v="restaurant|cafe|fast_food" zoom-min="16">
+        <circle r="3" fill="#D97706" />
+        <caption k="name" font-size="8" fill="#D97706" stroke="#FFFFFF" stroke-width="1.5" zoom-min="17" />
+    </rule>
+
+</rendertheme>

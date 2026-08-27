@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rendertheme xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" map-background="#F6F5EE"
+    map-background-outside="#E5E3DF" version="5" xmlns="http://mapsforge.org/renderTheme"
+    xsi:schemaLocation="http://mapsforge.org/renderTheme https://raw.githubusercontent.com/mapsforge/mapsforge/master/resources/renderTheme.xsd">
+
+    <!-- Land base -->
+    <rule e="way" k="natural" v="sea|issea">
+        <area fill="#90CAF9" />
+    </rule>
+    <rule e="way" k="natural" v="nosea|land">
+        <area fill="#F6F5EE" />
+    </rule>
+
+    <!-- Waterways / Tigris River (Vivid Sky Blue) -->
+    <rule e="way" k="waterway" v="riverbank|dock">
+        <area fill="#7EC2EE" stroke="#5DA7DA" stroke-width="0.5" />
+    </rule>
+    <rule e="way" k="natural" v="water|lake">
+        <area fill="#7EC2EE" stroke="#5DA7DA" stroke-width="0.5" />
+    </rule>
+    <rule e="way" k="landuse" v="reservoir|basin">
+        <area fill="#7EC2EE" stroke="#5DA7DA" stroke-width="0.5" />
+    </rule>
+    <rule e="way" k="waterway" v="river">
+        <line stroke="#7EC2EE" stroke-width="3.5" stroke-linecap="round" />
+        <pathText k="name" font-size="12" font-style="bold" fill="#1565C0" stroke="#FFFFFF" stroke-width="2.0" zoom-min="12" />
+    </rule>
+    <rule e="way" k="waterway" v="canal|stream|drain">
+        <line stroke="#7EC2EE" stroke-width="1.8" stroke-linecap="round" />
+    </rule>
+
+    <!-- Parks / Green Spaces (Soft Emerald Green) -->
+    <rule e="way" k="leisure" v="park|garden|pitch|playground">
+        <area fill="#C8E6C9" stroke="#A5D6A7" stroke-width="0.3" />
+    </rule>
+    <rule e="way" k="landuse" v="grass|forest|meadow|orchard|village_green">
+        <area fill="#C8E6C9" stroke="#A5D6A7" stroke-width="0.3" />
+    </rule>
+    <rule e="way" k="natural" v="wood|scrub|grassland">
+        <area fill="#C8E6C9" />
+    </rule>
+
+    <!-- Residential / Urban Blocks (Warm Ivory/Gray) -->
+    <rule e="way" k="landuse" v="residential" zoom-min="12">
+        <area fill="#EFECE4" />
+    </rule>
+    <rule e="way" k="landuse" v="commercial|retail" zoom-min="13">
+        <area fill="#E8E1D5" stroke="#D5CCC0" stroke-width="0.2" />
+    </rule>
+    <rule e="way" k="landuse" v="industrial|railway" zoom-min="13">
+        <area fill="#E0DCD5" stroke="#CCC7BF" stroke-width="0.2" />
+    </rule>
+    <rule e="way" k="amenity" v="university|college|school" zoom-min="13">
+        <area fill="#FFF3E0" stroke="#FFE0B2" stroke-width="0.3" />
+    </rule>
+
+    <!-- Buildings (Clean Modern Shadows) -->
+    <rule e="way" k="building" v="*" zoom-min="14">
+        <area fill="#DDD7CD" stroke="#C5BEB2" stroke-width="0.4" />
+    </rule>
+
+    <!-- Highways / Motorways (Vibrant Orange / Amber Glow) -->
+    <rule e="way" k="highway" v="motorway|trunk|motorway_link|trunk_link">
+        <line stroke="#E65100" stroke-width="3.6" stroke-linecap="round" />
+        <line stroke="#FFA726" stroke-width="2.6" stroke-linecap="round" />
+        <pathText k="name" font-size="11" font-style="bold" fill="#202124" stroke="#FFFFFF" stroke-width="2.2" />
+    </rule>
+
+    <!-- Primary Roads (Warm Golden Yellow) -->
+    <rule e="way" k="highway" v="primary|primary_link">
+        <line stroke="#C89600" stroke-width="3.0" stroke-linecap="round" />
+        <line stroke="#FFD54F" stroke-width="2.2" stroke-linecap="round" />
+        <pathText k="name" font-size="10" font-style="bold" fill="#202124" stroke="#FFFFFF" stroke-width="2.0" />
+    </rule>
+
+    <!-- Secondary Roads (Bright White with Dark Casing) -->
+    <rule e="way" k="highway" v="secondary|secondary_link">
+        <line stroke="#BDBDBD" stroke-width="2.6" stroke-linecap="round" />
+        <line stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" />
+        <pathText k="name" font-size="10" fill="#202124" stroke="#FFFFFF" stroke-width="2.0" />
+    </rule>
+
+    <!-- Tertiary Roads -->
+    <rule e="way" k="highway" v="tertiary|unclassified">
+        <line stroke="#CCCCCC" stroke-width="2.0" stroke-linecap="round" />
+        <line stroke="#FFFFFF" stroke-width="1.3" stroke-linecap="round" />
+        <pathText k="name" font-size="9" fill="#3C4043" stroke="#FFFFFF" stroke-width="1.8" zoom-min="14" />
+    </rule>
+
+    <!-- Residential Streets & Alleys -->
+    <rule e="way" k="highway" v="residential|living_street|service|road" zoom-min="13">
+        <line stroke="#D5D0C6" stroke-width="1.5" stroke-linecap="round" />
+        <line stroke="#FFFFFF" stroke-width="0.9" stroke-linecap="round" />
+        <pathText k="name" font-size="9" fill="#5F6368" stroke="#FFFFFF" stroke-width="1.8" zoom-min="15" />
+    </rule>
+
+    <!-- Footways & Paths -->
+    <rule e="way" k="highway" v="footway|pedestrian|path|track" zoom-min="14">
+        <line stroke="#BDBDBD" stroke-width="0.7" stroke-dasharray="3,2" />
+    </rule>
+
+    <!-- Place & Neighborhood Labels -->
+    <rule e="node" k="place" v="city|suburb|neighbourhood|quarter">
+        <caption k="name" font-size="13" font-style="bold" fill="#1A73E8" stroke="#FFFFFF" stroke-width="2.5" />
+    </rule>
+
+    <!-- POI Amenity Labels -->
+    <rule e="any" k="amenity" v="hospital|clinic|pharmacy" zoom-min="14">
+        <circle r="4" fill="#D93025" stroke="#FFFFFF" stroke-width="1" />
+        <caption k="name" font-size="9" fill="#C5221F" stroke="#FFFFFF" stroke-width="2" zoom-min="16" />
+    </rule>
+
+    <rule e="any" k="amenity" v="place_of_worship|mosque" zoom-min="14">
+        <circle r="4" fill="#188038" stroke="#FFFFFF" stroke-width="1" />
+        <caption k="name" font-size="9" fill="#137333" stroke="#FFFFFF" stroke-width="2" zoom-min="16" />
+    </rule>
+
+    <rule e="any" k="amenity" v="restaurant|cafe|fast_food" zoom-min="15">
+        <circle r="3" fill="#E37400" />
+        <caption k="name" font-size="8" fill="#B06000" stroke="#FFFFFF" stroke-width="1.5" zoom-min="17" />
+    </rule>
+
+</rendertheme>

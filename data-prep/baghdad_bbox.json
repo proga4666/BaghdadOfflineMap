@@ -1,0 +1,19 @@
+{
+  "region": "Baghdad, Iraq",
+  "min_latitude": 33.1500,
+  "min_longitude": 44.2000,
+  "max_latitude": 33.4500,
+  "max_longitude": 44.5500,
+  "center": {
+    "latitude": 33.3152,
+    "longitude": 44.3661
+  },
+  "landmarks": [
+    { "name": "Al-Mansour", "lat": 33.3152, "lon": 44.3540 },
+    { "name": "Karrada", "lat": 33.3006, "lon": 44.4282 },
+    { "name": "Al-Jadriya", "lat": 33.2758, "lon": 44.3802 },
+    { "name": "Tahrir Square", "lat": 33.3283, "lon": 44.4103 },
+    { "name": "Al-Kadhimiya", "lat": 33.3802, "lon": 44.3418 },
+    { "name": "Baghdad Airport", "lat": 33.2625, "lon": 44.2344 }
+  ]
+}

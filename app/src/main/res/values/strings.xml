@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Baghdad Offline Map</string>
+    <string name="title_offline_map">Baghdad Offline Map &amp; Navigation</string>
+    <string name="search_hint">Select a landmark or tap map…</string>
+    <string name="start_point">Start Point</string>
+    <string name="destination_point">Destination</string>
+    <string name="calculating_route">Calculating offline route…</string>
+    <string name="route_found">Route Found</string>
+    <string name="no_route_found">No route found between selected points</string>
+    <string name="tap_to_set_start">Tap on map or pick landmark for START point</string>
+    <string name="tap_to_set_dest">Tap on map or pick landmark for DESTINATION</string>
+    <string name="car">Drive</string>
+    <string name="bike">Bike</string>
+    <string name="foot">Walk</string>
+    <string name="clear_route">Clear</string>
+    <string name="download_map">Offline Maps</string>
+    <string name="download_iraq_map">Download Iraq Map (98 MB)</string>
+    <string name="download_status_ready">Map is installed and ready</string>
+    <string name="download_status_missing">No offline map found. Download or copy .map file.</string>
+    <string name="downloading">Downloading %1$d%%…</string>
+    <string name="download_complete">Map downloaded successfully!</string>
+    <string name="download_failed">Download failed: %1$s</string>
+    <string name="distance_format">%1$.1f km</string>
+    <string name="distance_meters_format">%1$d m</string>
+    <string name="duration_minutes_format">%1$d min</string>
+    <string name="duration_hours_minutes_format">%1$d h %2$d min</string>
+    <string name="quick_destinations">Baghdad Landmarks</string>
+    <string name="custom_coordinates">Custom Coordinates</string>
+    <string name="latitude">Latitude</string>
+    <string name="longitude">Longitude</string>
+    <string name="jump_to_location">Jump to Location</string>
+    <string name="manage_data_title">Manage Offline Data</string>
+    <string name="manage_data_desc">Vector maps (.map) and GraphHopper routing graphs (-gh) stored in private app storage.</string>
+</resources>
