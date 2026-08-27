@@ -185,6 +185,128 @@ class RouteCacheManager(context: Context) : SQLiteOpenHelper(context, DATABASE_N
         return null
     }
 
+    /**
+     * Search spatial cache for any previously saved Google route that leads to the same destination
+     * and whose corridor passes nearby the new start point, seamlessly stitching the exact Google route!
+     */
+    fun findCorridorMatchingRoute(
+        start: LatLong,
+        dest: LatLong,
+        vehicle: String,
+        maxDestDistanceMeters: Double = 180.0,
+        maxCorridorDistanceMeters: Double = 600.0
+    ): RouteResult? {
+        val exactMatch = findMatchingRoute(start, dest, vehicle, maxDistanceMeters = 150.0)
+        if (exactMatch != null) return exactMatch
+
+        val db = readableDatabase
+        val cursor = db.rawQuery(
+            "SELECT * FROM $TABLE_ROUTES WHERE $COL_VEHICLE = ? ORDER BY $COL_TIMESTAMP DESC LIMIT 100",
+            arrayOf(vehicle.lowercase())
+        )
+
+        try {
+            while (cursor.moveToNext()) {
+                val dLat = cursor.getDouble(cursor.getColumnIndexOrThrow(COL_DEST_LAT))
+                val dLon = cursor.getDouble(cursor.getColumnIndexOrThrow(COL_DEST_LON))
+
+                val distDest = GeoUtils.calculateDistance(dest, LatLong(dLat, dLon))
+                if (distDest <= maxDestDistanceMeters) {
+                    val pointsStr = cursor.getString(cursor.getColumnIndexOrThrow(COL_POINTS_TEXT))
+                    val points = ArrayList<LatLong>()
+                    pointsStr.split(";").forEach { pair ->
+                        val parts = pair.split(",")
+                        if (parts.size == 2) {
+                            val lat = parts[0].toDoubleOrNull()
+                            val lon = parts[1].toDoubleOrNull()
+                            if (lat != null && lon != null) {
+                                points.add(LatLong(lat, lon))
+                            }
+                        }
+                    }
+
+                    if (points.size < 4) continue
+
+                    // Find closest point on corridor to new start point
+                    var closestIdx = -1
+                    var minDistance = Double.MAX_VALUE
+                    for (i in 0 until points.size - 1) {
+                        val d = GeoUtils.calculateDistance(start, points[i])
+                        if (d < minDistance) {
+                            minDistance = d
+                            closestIdx = i
+                        }
+                    }
+
+                    if (minDistance <= maxCorridorDistanceMeters && closestIdx in 0 until points.size - 2) {
+                        // Sliced sub-corridor found!
+                        val remainingPoints = ArrayList<LatLong>()
+                        remainingPoints.add(start)
+                        remainingPoints.addAll(points.subList(closestIdx, points.size))
+
+                        var calculatedDistance = 0.0
+                        for (i in 0 until remainingPoints.size - 1) {
+                            calculatedDistance += GeoUtils.calculateDistance(remainingPoints[i], remainingPoints[i + 1])
+                        }
+
+                        val fullDuration = cursor.getLong(cursor.getColumnIndexOrThrow(COL_DURATION))
+                        val fullDistance = cursor.getDouble(cursor.getColumnIndexOrThrow(COL_DISTANCE)).coerceAtLeast(100.0)
+                        val estimatedDuration = (fullDuration * (calculatedDistance / fullDistance)).toLong().coerceAtLeast(60000L)
+                        val trafficDelay = cursor.getInt(cursor.getColumnIndexOrThrow(COL_TRAFFIC_DELAY))
+
+                        val instructionsJson = cursor.getString(cursor.getColumnIndexOrThrow(COL_INSTRUCTIONS_JSON))
+                        val instructions = ArrayList<RouteInstruction>()
+                        val jsonArray = JSONArray(instructionsJson)
+                        for (i in 0 until jsonArray.length()) {
+                            val obj = jsonArray.getJSONObject(i)
+                            instructions.add(
+                                RouteInstruction(
+                                    text = obj.getString("text"),
+                                    distanceMeters = obj.getDouble("dist"),
+                                    timeMillis = obj.getLong("time"),
+                                    sign = obj.getInt("sign"),
+                                    streetName = obj.optString("street", "")
+                                )
+                            )
+                        }
+
+                        val boundingBox = if (remainingPoints.isNotEmpty()) {
+                            var minLat = Double.MAX_VALUE
+                            var maxLat = -Double.MAX_VALUE
+                            var minLon = Double.MAX_VALUE
+                            var maxLon = -Double.MAX_VALUE
+                            for (p in remainingPoints) {
+                                minLat = min(minLat, p.latitude)
+                                maxLat = max(maxLat, p.latitude)
+                                minLon = min(minLon, p.longitude)
+                                maxLon = max(maxLon, p.longitude)
+                            }
+                            BoundingBox(minLat, minLon, maxLat, maxLon)
+                        } else null
+
+                        return RouteResult(
+                            points = remainingPoints,
+                            distanceMeters = calculatedDistance,
+                            timeMillis = estimatedDuration,
+                            instructions = instructions,
+                            boundingBox = boundingBox,
+                            isFallbackCalculation = false,
+                            source = RoutingSource.SAVED_ROUTE_CACHE,
+                            trafficDelayMins = trafficDelay,
+                            summary = "Google Learned Corridor (Re-used Offline)"
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            cursor.close()
+        }
+
+        return null
+    }
+
     fun getCachedRoutesCount(): Int {
         val db = readableDatabase
         val cursor = db.rawQuery("SELECT COUNT(*) FROM $TABLE_ROUTES", null)

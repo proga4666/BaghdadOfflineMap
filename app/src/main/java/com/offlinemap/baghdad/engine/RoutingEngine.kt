@@ -140,10 +140,10 @@ class RoutingEngine(private val context: Context) {
             }
         }
 
-        // Check local spatial cache for previously learned exact/nearby Google trips
-        val cachedRoute = cacheManager.findMatchingRoute(start, dest, vehicle)
+        // Check local spatial cache for previously learned exact/corridor Google trips
+        val cachedRoute = cacheManager.findCorridorMatchingRoute(start, dest, vehicle)
         if (cachedRoute != null) {
-            Log.i("RoutingEngine", "Found matching route in local Spatial Route Cache!")
+            Log.i("RoutingEngine", "Found matching route in local Spatial Route Cache / Corridor Stitcher!")
             return@withContext Result.success(cachedRoute)
         }
 
