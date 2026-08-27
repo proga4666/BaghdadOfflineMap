@@ -56,6 +56,11 @@ class MapLibreEngine(
     private var markerSource: GeoJsonSource? = null
     private var userLocationSource: GeoJsonSource? = null
 
+    var currentThemePreset: MapThemePreset = MapThemePreset.MODERN_LIGHT
+        private set
+
+    private var activeRoutePoints: List<LatLong>? = null
+
     companion object {
         const val ROUTE_SOURCE_ID = "baghdad_route_source"
         const val ROUTE_CASING_LAYER_ID = "baghdad_route_casing_layer"
@@ -70,9 +75,14 @@ class MapLibreEngine(
         const val ICON_START = "icon_start_pin"
         const val ICON_DEST = "icon_dest_pin"
         const val ICON_NAV_ARROW = "icon_nav_arrow"
+    }
 
-        // MapLibre default modern vector style
-        const val DEFAULT_STYLE = "https://demotiles.maplibre.org/style.json"
+    fun getStyleUriForPreset(preset: MapThemePreset): String {
+        return when (preset) {
+            MapThemePreset.WAZE_DARK, MapThemePreset.MIDNIGHT_DARK -> "asset://styles/style_waze_dark.json"
+            MapThemePreset.WAZE_LIGHT, MapThemePreset.MODERN_LIGHT -> "asset://styles/style_google_light.json"
+            MapThemePreset.OSM_CLASSIC -> "asset://styles/style_osm.json"
+        }
     }
 
     fun initialize(savedInstanceState: Bundle?, onReady: () -> Unit) {
@@ -84,7 +94,8 @@ class MapLibreEngine(
     }
 
     private fun setupMap(map: MapLibreMap, onReady: () -> Unit) {
-        map.setStyle(Style.Builder().fromUri(DEFAULT_STYLE)) { style ->
+        val styleUri = getStyleUriForPreset(currentThemePreset)
+        map.setStyle(Style.Builder().fromUri(styleUri)) { style ->
             setupIcons(style)
             setupRouteLayers(style)
             setupMarkerLayers(style)
@@ -320,7 +331,30 @@ class MapLibreEngine(
         markerSource?.setGeoJson(FeatureCollection.fromFeatures(features))
     }
 
+    fun setMapTheme(preset: MapThemePreset) {
+        currentThemePreset = preset
+        val map = mapLibreMap ?: return
+        val styleUri = getStyleUriForPreset(preset)
+        map.setStyle(Style.Builder().fromUri(styleUri)) { style ->
+            setupIcons(style)
+            setupRouteLayers(style)
+            setupMarkerLayers(style)
+            setupUserLocationLayer(style)
+            updateMarkers()
+            activeRoutePoints?.let { pts ->
+                val coords = pts.map { Point.fromLngLat(it.longitude, it.latitude) }
+                val lineString = LineString.fromLngLats(coords)
+                val feature = Feature.fromGeometry(lineString)
+                routeSource?.setGeoJson(FeatureCollection.fromFeatures(listOf(feature)))
+            }
+            lastUserLocation?.let { loc ->
+                setUserLocation(loc, 0f, lastUserBearing)
+            }
+        }
+    }
+
     fun displayRoute(points: List<LatLong>, boundingBox: org.mapsforge.core.model.BoundingBox? = null) {
+        activeRoutePoints = points
         if (points.size < 2) {
             clearRoute()
             return
@@ -344,6 +378,7 @@ class MapLibreEngine(
     }
 
     fun clearRoute() {
+        activeRoutePoints = null
         routeSource?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
     }
 
