@@ -337,7 +337,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         binding.cardPinSelectionCallout.showAnimated()
 
         // 4. Center camera directly on searched place (Do not start route yet!)
-        mapEngine.centerOn(place.coordinates, 16.toByte())
+        mapEngine.animateTo(place.coordinates, 16.toByte(), durationMs = 450L)
     }
 
     private fun hideSearchDropdown() {
@@ -437,9 +437,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
         // Floating Re-center Button
         binding.btnRecenterFloating.setOnClickListener {
-            autoRecenterJob?.cancel()
+            val currentLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
             mapEngine.resumeTracking()
-            binding.btnRecenterFloating.visibility = View.GONE
+            mapEngine.animateTo(currentLoc, 16.toByte(), durationMs = 450L)
+            binding.btnRecenterFloating.hideAnimated()
         }
 
         // Settings Dialog (⚙️ in search bar)
@@ -491,10 +492,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         // Center Location FAB (🎯)
         binding.fabCenterBaghdad.setOnClickListener {
             mapEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW)
-            val currentLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation
-            if (currentLoc != null) {
-                mapEngine.centerOn(currentLoc, 16.toByte())
-            }
+            val currentLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
+            mapEngine.animateTo(currentLoc, 16.toByte(), durationMs = 450L)
             startLocationUpdates()
         }
 
@@ -533,12 +532,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
             if (best != null) {
                 onLocationChanged(best)
-                mapEngine.centerOn(LatLong(best.latitude, best.longitude), 16.toByte())
             } else {
-                mapEngine.centerOn(GeoUtils.BAGHDAD_CENTER, 14.toByte())
+                mapEngine.animateTo(GeoUtils.BAGHDAD_CENTER, 14.toByte(), durationMs = 450L)
             }
         } catch (e: Exception) {
-            mapEngine.centerOn(GeoUtils.BAGHDAD_CENTER, 14.toByte())
+            mapEngine.animateTo(GeoUtils.BAGHDAD_CENTER, 14.toByte(), durationMs = 450L)
         }
     }
 

@@ -268,10 +268,18 @@ class MapEngine(
     private var lastDestLocation: LatLong? = null
     private var lastSelectionLocation: LatLong? = null
 
+    var isCameraAnimating = false
+        private set
+
     private var cameraAnimator: android.animation.ValueAnimator? = null
     private var rotationAnimator: android.animation.ValueAnimator? = null
 
-    fun animateTo(target: LatLong, targetZoom: Byte? = null, durationMs: Long = 450L) {
+    fun animateTo(
+        target: LatLong,
+        targetZoom: Byte? = null,
+        durationMs: Long = 450L,
+        onComplete: (() -> Unit)? = null
+    ) {
         cameraAnimator?.cancel()
         val startCenter = mapView.model.mapViewPosition.center ?: GeoUtils.BAGHDAD_CENTER
         val startLat = startCenter.latitude
@@ -279,23 +287,37 @@ class MapEngine(
         val targetLat = target.latitude
         val targetLon = target.longitude
 
-        val startZoom = mapView.model.mapViewPosition.zoomLevel.toInt()
-        val endZoom = targetZoom?.toInt() ?: startZoom
+        val startZoom = mapView.model.mapViewPosition.zoomLevel
+        val endZoom = targetZoom ?: startZoom
+
+        if (endZoom != startZoom) {
+            mapView.model.mapViewPosition.zoomLevel = endZoom
+        }
+
+        isCameraAnimating = true
 
         cameraAnimator = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
             duration = durationMs
-            interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+            interpolator = android.view.animation.DecelerateInterpolator(1.8f)
             addUpdateListener { animator ->
                 val fraction = animator.animatedValue as Float
                 val curLat = startLat + (targetLat - startLat) * fraction
                 val curLon = startLon + (targetLon - startLon) * fraction
                 mapView.model.mapViewPosition.setCenter(LatLong(curLat, curLon))
-
-                if (endZoom != startZoom && fraction >= 0.5f) {
-                    mapView.model.mapViewPosition.zoomLevel = endZoom.toByte()
-                }
                 mapView.repaint()
             }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    mapView.model.mapViewPosition.setCenter(target)
+                    mapView.repaint()
+                    isCameraAnimating = false
+                    onComplete?.invoke()
+                }
+
+                override fun onAnimationCancel(animation: android.animation.Animator) {
+                    isCameraAnimating = false
+                }
+            })
             start()
         }
     }
@@ -526,8 +548,8 @@ class MapEngine(
             userLocationMarker?.bitmap = arrowBitmap
         }
 
-        // 3. Camera Position (Only center on GPS location change if tracking is active and not suspended)
-        if (!isTrackingSuspended && trackingMode != TrackingMode.FREE) {
+        // 3. Camera Position (Only center on GPS location change if tracking is active, not suspended, and not animating)
+        if (!isTrackingSuspended && trackingMode != TrackingMode.FREE && !isCameraAnimating) {
             mapView.model.mapViewPosition.setCenter(latLong)
         }
 
