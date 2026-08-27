@@ -183,20 +183,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
             binding.cardPinSelectionCallout.showAnimated()
         }
 
-        // 2. Handle Camera Pan Interruption & 5-Second Auto-Recenter Timer
+        // 2. Handle Camera Pan Interruption: Show/hide floating Re-center button (No auto-steal timer!)
         mapEngine.onTrackingSuspensionChanged = { isSuspended ->
             if (isSuspended) {
                 binding.btnRecenterFloating.showAnimated()
-                autoRecenterJob?.cancel()
-                autoRecenterJob = lifecycleScope.launch {
-                    kotlinx.coroutines.delay(5000L) // 5 seconds of inactivity -> auto return to vehicle
-                    if (mapEngine.isTrackingSuspended) {
-                        mapEngine.resumeTracking()
-                        binding.btnRecenterFloating.hideAnimated()
-                    }
-                }
             } else {
-                autoRecenterJob?.cancel()
                 binding.btnRecenterFloating.hideAnimated()
             }
         }
@@ -205,10 +196,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun setupCompassAndLocation() {
         compassManager = CompassSensorManager(this)
         compassManager.onAzimuthChanged = { azimuth ->
-            val loc = lastGpsLocation
-            val latLong = if (loc != null) LatLong(loc.latitude, loc.longitude) else mapEngine.lastUserLocation
-            val accuracy = loc?.accuracy ?: 20f
-            mapEngine.setUserLocation(latLong, accuracy, azimuth)
+            mapEngine.setUserBearing(azimuth)
         }
     }
 

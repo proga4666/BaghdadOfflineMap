@@ -442,7 +442,7 @@ class MapEngine(
             centerOn(lastUserLocation!!, 16.toByte())
             applyCameraTransform(lastUserBearing, animated = true)
         }
-        updateUserLocationVisuals()
+        setUserLocation(lastUserLocation)
     }
 
     fun resumeTracking() {
@@ -460,18 +460,27 @@ class MapEngine(
         mapView.repaint()
     }
 
+    fun setUserBearing(bearingDegrees: Float) {
+        lastUserBearing = bearingDegrees
+        if (trackingMode == TrackingMode.FOLLOW_AND_ROTATE && !isTrackingSuspended) {
+            mapView.rotation = -bearingDegrees
+            updateAllPinRotations()
+            userLocationMarker?.bitmap = getCachedArrowBitmap(0f)
+        } else {
+            userLocationMarker?.bitmap = getCachedArrowBitmap(bearingDegrees)
+        }
+        mapView.repaint()
+    }
+
     fun setUserLocation(
         latLong: LatLong?,
         accuracyMeters: Float = 0f,
-        bearingDegrees: Float = 0f
+        bearingDegrees: Float? = null
     ) {
         lastUserLocation = latLong
-        lastUserBearing = bearingDegrees
-        updateUserLocationVisuals(accuracyMeters)
-    }
-
-    private fun updateUserLocationVisuals(accuracyMeters: Float = 20f) {
-        val latLong = lastUserLocation
+        if (bearingDegrees != null) {
+            lastUserBearing = bearingDegrees
+        }
         if (latLong == null) {
             userLocationMarker?.let { mapView.layerManager.layers.remove(it) }
             accuracyCircle?.let { mapView.layerManager.layers.remove(it) }
@@ -517,19 +526,9 @@ class MapEngine(
             userLocationMarker?.bitmap = arrowBitmap
         }
 
-        // 3. Camera behavior (Only lock camera if user is NOT currently panning)
-        if (!isTrackingSuspended) {
-            when (trackingMode) {
-                TrackingMode.FOLLOW -> {
-                    mapView.model.mapViewPosition.setCenter(latLong)
-                    resetCameraTransform()
-                }
-                TrackingMode.FOLLOW_AND_ROTATE -> {
-                    mapView.model.mapViewPosition.setCenter(latLong)
-                    applyCameraTransform(lastUserBearing)
-                }
-                TrackingMode.FREE -> {}
-            }
+        // 3. Camera Position (Only center on GPS location change if tracking is active and not suspended)
+        if (!isTrackingSuspended && trackingMode != TrackingMode.FREE) {
+            mapView.model.mapViewPosition.setCenter(latLong)
         }
 
         mapView.repaint()
