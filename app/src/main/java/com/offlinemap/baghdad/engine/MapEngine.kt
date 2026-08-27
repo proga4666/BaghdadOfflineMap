@@ -456,34 +456,46 @@ class MapEngine(
         }
     }
 
-    fun setTrackingMode(mode: TrackingMode) {
+    fun setTrackingMode(mode: TrackingMode, animated: Boolean = true) {
         trackingMode = mode
         isTrackingSuspended = false
         onTrackingSuspensionChanged?.invoke(false)
 
         if (mode == TrackingMode.FREE) {
-            resetCameraTransform(animated = true)
+            resetCameraTransform(animated = animated)
         } else if (mode == TrackingMode.FOLLOW && lastUserLocation != null) {
-            resetCameraTransform(animated = true)
-            centerOn(lastUserLocation!!, 16.toByte())
+            resetCameraTransform(animated = animated)
+            if (animated) {
+                animateTo(lastUserLocation!!, 16.toByte(), durationMs = 520L)
+            } else {
+                centerOn(lastUserLocation!!, 16.toByte())
+            }
         } else if (mode == TrackingMode.FOLLOW_AND_ROTATE && lastUserLocation != null) {
-            centerOn(lastUserLocation!!, 16.toByte())
-            applyCameraTransform(lastUserBearing, animated = true)
+            if (animated) {
+                animateTo(lastUserLocation!!, 16.toByte(), durationMs = 520L)
+            } else {
+                centerOn(lastUserLocation!!, 16.toByte())
+            }
+            applyCameraTransform(lastUserBearing, animated = animated)
         }
         setUserLocation(lastUserLocation)
     }
 
-    fun resumeTracking() {
+    fun resumeTracking(animated: Boolean = true) {
         if (trackingMode == TrackingMode.FREE) return
         isTrackingSuspended = false
         onTrackingSuspensionChanged?.invoke(false)
 
         val loc = lastUserLocation ?: return
-        centerOn(loc, 16.toByte())
-        if (trackingMode == TrackingMode.FOLLOW_AND_ROTATE) {
-            applyCameraTransform(lastUserBearing, animated = true)
+        if (animated) {
+            animateTo(loc, 16.toByte(), durationMs = 520L)
         } else {
-            resetCameraTransform(animated = true)
+            centerOn(loc, 16.toByte())
+        }
+        if (trackingMode == TrackingMode.FOLLOW_AND_ROTATE) {
+            applyCameraTransform(lastUserBearing, animated = animated)
+        } else {
+            resetCameraTransform(animated = animated)
         }
         mapView.repaint()
     }

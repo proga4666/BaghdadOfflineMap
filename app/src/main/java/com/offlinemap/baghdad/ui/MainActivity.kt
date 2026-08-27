@@ -437,9 +437,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
         // Floating Re-center Button
         binding.btnRecenterFloating.setOnClickListener {
-            val currentLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
-            mapEngine.resumeTracking()
-            mapEngine.animateTo(currentLoc, 16.toByte(), durationMs = 450L)
+            mapEngine.resumeTracking(animated = true)
             binding.btnRecenterFloating.hideAnimated()
         }
 
@@ -461,7 +459,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 MapEngine.TrackingMode.FOLLOW -> MapEngine.TrackingMode.FOLLOW_AND_ROTATE
                 MapEngine.TrackingMode.FOLLOW_AND_ROTATE -> MapEngine.TrackingMode.FREE
             }
-            mapEngine.setTrackingMode(next)
+            mapEngine.setTrackingMode(next, animated = true)
 
             when (next) {
                 MapEngine.TrackingMode.FREE -> {
@@ -491,9 +489,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
         // Center Location FAB (🎯)
         binding.fabCenterBaghdad.setOnClickListener {
-            mapEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW)
-            val currentLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
-            mapEngine.animateTo(currentLoc, 16.toByte(), durationMs = 450L)
+            mapEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW, animated = true)
             startLocationUpdates()
         }
 
