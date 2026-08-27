@@ -1,12 +1,15 @@
 package com.offlinemap.baghdad
 
 import android.app.Application
+import org.maplibre.android.MapLibre
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 
 class BaghdadMapApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        // Mapsforge Android graphic factory initialization is required before using MapView
+        // Initialize MapLibre Native C++ rendering engine
+        MapLibre.getInstance(this)
+        // Mapsforge Android graphic factory initialization
         AndroidGraphicFactory.createInstance(this)
     }
 }

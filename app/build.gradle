@@ -92,6 +92,9 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1'
 
+    // MapLibre Native (120 FPS GPU Vector Rendering Engine)
+    implementation 'org.maplibre.gl:android-sdk:11.5.1'
+
     // Mapsforge (Offline Vector Map Rendering)
     implementation 'org.mapsforge:mapsforge-map-android:0.21.0'
     implementation 'org.mapsforge:mapsforge-map:0.21.0'

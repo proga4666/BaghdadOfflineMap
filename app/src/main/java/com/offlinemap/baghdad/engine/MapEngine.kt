@@ -246,17 +246,17 @@ class MapEngine(
             applyThemeBackgroundColor(currentThemePreset)
             mapView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
 
-            // Pre-render 75% beyond visible viewport to eliminate white squares during panning
-            val overdraw = 1.75
+            val overdraw = 1.2
             mapView.model.frameBufferModel.overdrawFactor = overdraw
 
-            // Initialize high-capacity dual-level tile cache (768 RAM tiles = ~200MB pool + 2048 Disk tiles)
+            // Initialize correct dual-level tile cache (256 RAM tiles + 1024 Disk tiles)
+            val tileSize = mapView.model.displayModel.tileSize
             tileCache = AndroidUtil.createTileCache(
                 context,
                 "mapcache",
-                768,
-                2048,
-                mapView.model.displayModel.tileSize,
+                tileSize,
+                256,
+                1024,
                 overdraw,
                 true
             )
@@ -794,40 +794,6 @@ class MapEngine(
         }
 
         mapView.repaint()
-        preloadRouteTiles(points)
-    }
-
-    private fun preloadRouteTiles(points: List<LatLong>) {
-        if (points.isEmpty() || !isOfflineModeLoaded) return
-
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
-            try {
-                val sampledPoints = ArrayList<LatLong>()
-                var lastAdded = points.first()
-                sampledPoints.add(lastAdded)
-
-                for (pt in points) {
-                    if (GeoUtils.calculateDistance(lastAdded, pt) >= 300.0) {
-                        sampledPoints.add(pt)
-                        lastAdded = pt
-                    }
-                }
-                if (sampledPoints.last() != points.last()) {
-                    sampledPoints.add(points.last())
-                }
-
-                // Pre-warm tiles into cache for navigation driving zoom levels
-                val zoomLevels = listOf(14.toByte(), 15.toByte(), 16.toByte())
-                for (zoom in zoomLevels) {
-                    for (pt in sampledPoints) {
-                        val tileX = org.mapsforge.core.util.MercatorProjection.longitudeToTileX(pt.longitude, zoom)
-                        val tileY = org.mapsforge.core.util.MercatorProjection.latitudeToTileY(pt.latitude, zoom)
-                        val tile = org.mapsforge.core.model.Tile(tileX, tileY, zoom, 256)
-                        tileCache?.containsKey(Job(tile, false))
-                    }
-                }
-            } catch (_: Exception) {}
-        }
     }
 
     fun clearRoute() {
