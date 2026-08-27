@@ -93,6 +93,23 @@
             app:chipStrokeWidth="0dp" />
     </LinearLayout>
 
+    <!-- Start Navigation Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnStartLiveNavigation"
+        style="@style/Widget.Material3.Button"
+        android:layout_width="match_parent"
+        android:layout_height="46dp"
+        android:layout_marginTop="8dp"
+        android:backgroundTint="@color/primary"
+        android:text="Start Navigation (ابدأ الملاحة)"
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        app:cornerRadius="14dp"
+        app:icon="@drawable/ic_navigation_arrow"
+        app:iconGravity="textStart"
+        app:iconTint="@color/white" />
+
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"

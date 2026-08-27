@@ -37,6 +37,11 @@ import com.offlinemap.baghdad.ui.viewmodel.RouteState
 import com.offlinemap.baghdad.utils.GeoUtils
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import android.view.WindowManager
+import com.offlinemap.baghdad.data.model.RouteInstruction
+import com.offlinemap.baghdad.engine.NavigationTracker
+import com.offlinemap.baghdad.engine.NavProgressState
+import com.offlinemap.baghdad.engine.VoiceGuidanceManager
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.view.MapView
 import java.util.Locale
@@ -55,6 +60,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private val searchRepo = PlaceSearchRepository()
     private lateinit var searchHistoryRepo: SearchHistoryRepository
     private lateinit var compassManager: CompassSensorManager
+
+    private lateinit var voiceGuidanceManager: VoiceGuidanceManager
+    private lateinit var navigationTracker: NavigationTracker
+    private var activeRouteResult: RouteResult? = null
 
     private var lastGpsLocation: Location? = null
     private var selectedPinLocation: LatLong? = null
@@ -81,6 +90,24 @@ class MainActivity : AppCompatActivity(), LocationListener {
         setContentView(binding.root)
 
         searchHistoryRepo = SearchHistoryRepository(this)
+        voiceGuidanceManager = VoiceGuidanceManager(this)
+        navigationTracker = NavigationTracker(voiceGuidanceManager).apply {
+            onNavStateChanged = { state ->
+                runOnUiThread { updateNavigationHud(state) }
+            }
+            onOffRoute = {
+                runOnUiThread {
+                    Toast.makeText(this@MainActivity, "⚠️ Off route. Recalculating...", Toast.LENGTH_SHORT).show()
+                    viewModel.calculateRoute()
+                }
+            }
+            onArrival = {
+                runOnUiThread {
+                    Toast.makeText(this@MainActivity, "🎉 You have arrived at your destination!", Toast.LENGTH_LONG).show()
+                    stopActiveNavigation()
+                }
+            }
+        }
 
         setupMapView()
         setupCompassAndLocation()
@@ -507,6 +534,25 @@ class MainActivity : AppCompatActivity(), LocationListener {
             startLocationUpdates()
         }
 
+        // Start Live Turn-by-Turn Navigation Button
+        binding.bottomSheetRoute.btnStartLiveNavigation.setOnClickListener {
+            val route = activeRouteResult ?: return@setOnClickListener
+            startActiveNavigation(route)
+        }
+
+        // Exit Navigation Button (✖️ in HUD)
+        binding.btnNavExit.setOnClickListener {
+            stopActiveNavigation()
+        }
+
+        // Voice Mute Toggle Button (🔊 / 🔇)
+        binding.btnNavMuteToggle.setOnClickListener {
+            voiceGuidanceManager.isMuted = !voiceGuidanceManager.isMuted
+            updateMuteButtonIcon()
+            val msg = if (voiceGuidanceManager.isMuted) "🔇 Voice Guidance Muted (تم كتم الصوت)" else "🔊 Voice Guidance Active (تم تفعيل الصوت)"
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        }
+
         // Quick Route Calculate FAB
         binding.fabCalculateRoute.setOnClickListener {
             if (viewModel.startPoint.value != null && viewModel.destPoint.value != null) {
@@ -516,6 +562,69 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 showLandmarkPicker(isSelectingStart = viewModel.startPoint.value == null)
             }
         }
+    }
+
+    private fun startActiveNavigation(route: RouteResult) {
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+        binding.cardSearchBar.hideAnimated()
+        binding.containerFloatingButtons.hideAnimated()
+        binding.btnRecenterFloating.hideAnimated()
+        binding.cardPinSelectionCallout.hideAnimated()
+
+        updateMuteButtonIcon()
+        binding.cardNavHud.showAnimated()
+
+        mapEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW_AND_ROTATE, animated = true)
+        binding.fabCompassTracking.setImageResource(R.drawable.ic_navigation_arrow)
+
+        navigationTracker.startNavigation(route)
+    }
+
+    private fun stopActiveNavigation() {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        navigationTracker.stopNavigation()
+        binding.cardNavHud.hideAnimated()
+        binding.cardSearchBar.showAnimated()
+        binding.containerFloatingButtons.showAnimated()
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
+
+        mapEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW, animated = true)
+        binding.fabCompassTracking.setImageResource(R.drawable.ic_my_location)
+    }
+
+    private fun updateMuteButtonIcon() {
+        if (voiceGuidanceManager.isMuted) {
+            binding.btnNavMuteToggle.setImageResource(R.drawable.ic_volume_off)
+        } else {
+            binding.btnNavMuteToggle.setImageResource(R.drawable.ic_volume_up)
+        }
+    }
+
+    private fun updateNavigationHud(state: NavProgressState) {
+        if (!navigationTracker.isTracking) return
+
+        val inst = state.currentInstruction
+        val iconRes = when (inst?.turnType) {
+            RouteInstruction.TurnType.LEFT, RouteInstruction.TurnType.SLIGHT_LEFT, RouteInstruction.TurnType.SHARP_LEFT -> R.drawable.ic_turn_left
+            RouteInstruction.TurnType.RIGHT, RouteInstruction.TurnType.SLIGHT_RIGHT, RouteInstruction.TurnType.SHARP_RIGHT -> R.drawable.ic_turn_right
+            RouteInstruction.TurnType.FINISH -> R.drawable.ic_finish
+            else -> R.drawable.ic_turn_straight
+        }
+        binding.ivNavTurnIcon.setImageResource(iconRes)
+
+        binding.tvNavDistanceToTurn.text = if (state.distanceToNextManeuverMeters < 20.0) {
+            "Now (الآن)"
+        } else {
+            GeoUtils.formatDistance(state.distanceToNextManeuverMeters)
+        }
+
+        val streetName = inst?.streetName?.ifBlank { inst.text } ?: "Continue on route"
+        binding.tvNavNextStreet.text = streetName
+
+        val remainingDistStr = GeoUtils.formatDistance(state.remainingDistanceMeters)
+        val remainingDurationStr = GeoUtils.formatDuration(state.remainingTimeMillis)
+        binding.tvNavTripMetrics.text = "Remaining: $remainingDistStr • $remainingDurationStr"
     }
 
     private fun startLocationUpdates() {
@@ -555,6 +664,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val userLatLong = LatLong(location.latitude, location.longitude)
         val bearing = if (location.hasBearing()) location.bearing else compassManager.onAzimuthChanged?.let { mapEngine.lastUserBearing } ?: 0f
         mapEngine.setUserLocation(userLatLong, location.accuracy, bearing)
+
+        // Pass location to active turn-by-turn navigation engine
+        if (navigationTracker.isTracking) {
+            navigationTracker.onLocationUpdate(userLatLong, if (location.hasSpeed()) location.speed else 0f)
+        }
 
         // Only set initial start point once if not set yet
         if (isStartPointDynamicGps && viewModel.startPoint.value == null) {
@@ -621,6 +735,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     private fun displayRouteResult(route: RouteResult) {
+        activeRouteResult = route
         mapEngine.displayRoute(route.points, route.boundingBox)
 
         binding.bottomSheetRoute.tvRouteDistance.text = GeoUtils.formatDistance(route.distanceMeters)
@@ -665,6 +780,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     override fun onDestroy() {
         super.onDestroy()
+        voiceGuidanceManager.shutdown()
+        navigationTracker.stopNavigation()
         mapEngine.onDestroy()
     }
 }

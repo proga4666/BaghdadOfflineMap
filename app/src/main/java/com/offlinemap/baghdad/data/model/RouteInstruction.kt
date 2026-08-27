@@ -1,11 +1,14 @@
 package com.offlinemap.baghdad.data.model
 
+import org.mapsforge.core.model.LatLong
+
 data class RouteInstruction(
     val text: String,
     val distanceMeters: Double,
     val timeMillis: Long,
     val sign: Int,
-    val streetName: String
+    val streetName: String,
+    val location: LatLong? = null
 ) {
     enum class TurnType {
         STRAIGHT,

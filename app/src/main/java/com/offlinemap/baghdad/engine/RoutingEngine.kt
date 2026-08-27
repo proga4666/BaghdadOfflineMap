@@ -207,13 +207,17 @@ class RoutingEngine(private val context: Context) {
                 val ghInstructions: InstructionList = path.instructions
                 for (inst: Instruction in ghInstructions) {
                     val turnDesc = inst.getTurnDescription(tr)
+                    val instLoc = if (inst.points != null && inst.points.size() > 0) {
+                        LatLong(inst.points.getLat(0), inst.points.getLon(0))
+                    } else null
                     instructions.add(
                         RouteInstruction(
                             text = turnDesc,
                             distanceMeters = inst.distance,
                             timeMillis = inst.time,
                             sign = inst.sign,
-                            streetName = inst.name
+                            streetName = inst.name,
+                            location = instLoc
                         )
                     )
                 }

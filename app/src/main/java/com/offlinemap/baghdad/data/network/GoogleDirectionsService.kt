@@ -111,6 +111,10 @@ class GoogleDirectionsService {
                 val stepDurationSec = step.getJSONObject("duration").getLong("value")
                 val maneuver = step.optString("maneuver", "")
                 val sign = parseManeuverToSign(maneuver)
+                val startLocObj = step.optJSONObject("start_location")
+                val stepLatLong = if (startLocObj != null) {
+                    LatLong(startLocObj.getDouble("lat"), startLocObj.getDouble("lng"))
+                } else null
 
                 instructions.add(
                     RouteInstruction(
@@ -118,7 +122,8 @@ class GoogleDirectionsService {
                         distanceMeters = stepDist,
                         timeMillis = stepDurationSec * 1000L,
                         sign = sign,
-                        streetName = cleanText
+                        streetName = cleanText,
+                        location = stepLatLong
                     )
                 )
             }
