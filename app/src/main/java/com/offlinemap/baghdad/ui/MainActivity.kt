@@ -96,7 +96,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun setupMapView() {
         mapView = MapView(this)
-        binding.mapContainer.addView(mapView)
+        val metrics = resources.displayMetrics
+        val diagonal = kotlin.math.hypot(metrics.widthPixels.toDouble(), metrics.heightPixels.toDouble()).toInt()
+        val size = diagonal + 200
+        val lp = android.widget.FrameLayout.LayoutParams(size, size).apply {
+            gravity = android.view.Gravity.CENTER
+        }
+        binding.mapContainer.addView(mapView, lp)
         mapEngine = MapEngine(this, mapView)
 
         val savedThemeName = getSharedPreferences("baghdad_map_prefs", Context.MODE_PRIVATE)

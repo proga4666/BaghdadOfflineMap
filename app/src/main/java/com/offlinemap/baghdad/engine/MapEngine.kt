@@ -264,27 +264,60 @@ class MapEngine(
     var lastUserBearing: Float = 0f
         private set
 
+    private var lastStartLocation: LatLong? = null
+    private var lastDestLocation: LatLong? = null
+    private var lastSelectionLocation: LatLong? = null
+
     private fun applyCameraTransform(bearing: Float) {
-        val w = mapView.width.toFloat()
-        val h = mapView.height.toFloat()
-        if (w > 0 && h > 0) {
-            val diagonal = kotlin.math.hypot(w.toDouble(), h.toDouble()).toFloat()
-            val scale = (diagonal / kotlin.math.min(w, h)) * 1.05f // 5% extra safety margin
-            mapView.scaleX = scale
-            mapView.scaleY = scale
-            mapView.pivotX = w / 2f
-            mapView.pivotY = h / 2f
-        } else {
-            mapView.scaleX = 2.5f
-            mapView.scaleY = 2.5f
-        }
+        mapView.scaleX = 1.0f
+        mapView.scaleY = 1.0f
+        mapView.pivotX = mapView.width / 2f
+        mapView.pivotY = mapView.height / 2f
         mapView.rotation = -bearing
+        updateAllPinRotations()
     }
 
     private fun resetCameraTransform() {
         mapView.rotation = 0f
         mapView.scaleX = 1.0f
         mapView.scaleY = 1.0f
+        updateAllPinRotations()
+    }
+
+    private fun getPinCounterRotation(): Float {
+        return if (trackingMode == TrackingMode.FOLLOW_AND_ROTATE && !isTrackingSuspended) {
+            lastUserBearing
+        } else {
+            0f
+        }
+    }
+
+    private fun updateAllPinRotations() {
+        val counterRot = getPinCounterRotation()
+
+        lastSelectionLocation?.let { latLong ->
+            selectionMarker?.let { mapView.layerManager.layers.remove(it) }
+            val bitmap = createMarkerBitmap(R.drawable.ic_dest_pin, counterRot, 36)
+            val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
+            selectionMarker = marker
+            mapView.layerManager.layers.add(marker)
+        }
+
+        lastStartLocation?.let { latLong ->
+            startMarker?.let { mapView.layerManager.layers.remove(it) }
+            val bitmap = createMarkerBitmap(R.drawable.ic_start_pin, counterRot, 36)
+            val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
+            startMarker = marker
+            mapView.layerManager.layers.add(marker)
+        }
+
+        lastDestLocation?.let { latLong ->
+            destMarker?.let { mapView.layerManager.layers.remove(it) }
+            val bitmap = createMarkerBitmap(R.drawable.ic_dest_pin, counterRot, 36)
+            val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
+            destMarker = marker
+            mapView.layerManager.layers.add(marker)
+        }
     }
 
     fun setTrackingMode(mode: TrackingMode) {
@@ -391,11 +424,12 @@ class MapEngine(
     }
 
     fun setSelectionPoint(latLong: LatLong?) {
+        lastSelectionLocation = latLong
         selectionMarker?.let { mapView.layerManager.layers.remove(it) }
         selectionMarker = null
 
         if (latLong != null) {
-            val bitmap = createMarkerBitmap(R.drawable.ic_dest_pin)
+            val bitmap = createMarkerBitmap(R.drawable.ic_dest_pin, getPinCounterRotation(), 36)
             val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
             selectionMarker = marker
             mapView.layerManager.layers.add(marker)
@@ -404,28 +438,30 @@ class MapEngine(
     }
 
     fun clearSelectionPoint() {
+        lastSelectionLocation = null
         setSelectionPoint(null)
     }
 
     private fun createRotatedArrowBitmap(degrees: Float): Bitmap {
         val drawable = ContextCompat.getDrawable(context, R.drawable.ic_navigation_arrow)!!
-        val width = 72
-        val height = 72
-        val androidBitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+        val density = context.resources.displayMetrics.density
+        val px = (38 * density).toInt()
+        val androidBitmap = android.graphics.Bitmap.createBitmap(px, px, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(androidBitmap)
-        canvas.rotate(degrees, width / 2f, height / 2f)
-        drawable.setBounds(0, 0, width, height)
+        canvas.rotate(degrees, px / 2f, px / 2f)
+        drawable.setBounds(0, 0, px, px)
         drawable.draw(canvas)
         val bitmapDrawable = android.graphics.drawable.BitmapDrawable(context.resources, androidBitmap)
         return AndroidGraphicFactory.convertToBitmap(bitmapDrawable)
     }
 
     fun setStartPoint(latLong: LatLong?) {
+        lastStartLocation = latLong
         startMarker?.let { mapView.layerManager.layers.remove(it) }
         startMarker = null
 
         if (latLong != null) {
-            val bitmap = createMarkerBitmap(R.drawable.ic_start_pin)
+            val bitmap = createMarkerBitmap(R.drawable.ic_start_pin, getPinCounterRotation(), 36)
             val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
             startMarker = marker
             mapView.layerManager.layers.add(marker)
@@ -434,11 +470,12 @@ class MapEngine(
     }
 
     fun setDestinationPoint(latLong: LatLong?) {
+        lastDestLocation = latLong
         destMarker?.let { mapView.layerManager.layers.remove(it) }
         destMarker = null
 
         if (latLong != null) {
-            val bitmap = createMarkerBitmap(R.drawable.ic_dest_pin)
+            val bitmap = createMarkerBitmap(R.drawable.ic_dest_pin, getPinCounterRotation(), 36)
             val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
             destMarker = marker
             mapView.layerManager.layers.add(marker)
@@ -500,9 +537,19 @@ class MapEngine(
         mapView.repaint()
     }
 
-    private fun createMarkerBitmap(drawableResId: Int): Bitmap {
+    private fun createMarkerBitmap(drawableResId: Int, counterRotation: Float = 0f, sizeDp: Int = 36): Bitmap {
         val drawable = ContextCompat.getDrawable(context, drawableResId)!!
-        return AndroidGraphicFactory.convertToBitmap(drawable)
+        val density = context.resources.displayMetrics.density
+        val px = (sizeDp * density).toInt()
+        val androidBitmap = android.graphics.Bitmap.createBitmap(px, px, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(androidBitmap)
+        if (counterRotation != 0f) {
+            canvas.rotate(counterRotation, px / 2f, px / 2f)
+        }
+        drawable.setBounds(0, 0, px, px)
+        drawable.draw(canvas)
+        val bitmapDrawable = android.graphics.drawable.BitmapDrawable(context.resources, androidBitmap)
+        return AndroidGraphicFactory.convertToBitmap(bitmapDrawable)
     }
 
     private fun destroyLayers() {
