@@ -55,6 +55,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var compassManager: CompassSensorManager
 
     private var lastGpsLocation: Location? = null
+    private var selectedPinLocation: LatLong? = null
+    private var isStartPointDynamicGps: Boolean = true
+    private var autoRecenterJob: kotlinx.coroutines.Job? = null
+    private var lastCalculatedStartLocation: LatLong? = null
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -100,26 +104,63 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         mapEngine.setMapTheme(preset)
 
+        // 1. Single Tap on Map: Drop temporary marker & show Options Callout ("Set as Start" / "Set as Destination")
         mapEngine.onMapTapListener = { latLong ->
             if (binding.cardSearchResults.visibility == View.VISIBLE) {
                 hideSearchDropdown()
-            } else if (viewModel.startPoint.value == null) {
-                viewModel.setStartPoint(latLong)
-                binding.tvStartPointLabel.text = String.format(Locale.getDefault(), "Start: (%.4f, %.4f)", latLong.latitude, latLong.longitude)
-                binding.cardRouteSummaryHeader.visibility = View.VISIBLE
-                Toast.makeText(this, "Start point set. Tap again or search for destination.", Toast.LENGTH_SHORT).show()
             } else {
-                viewModel.setDestinationPoint(latLong)
-                binding.tvDestPointLabel.text = String.format(Locale.getDefault(), "Dest: (%.4f, %.4f)", latLong.latitude, latLong.longitude)
-                binding.cardRouteSummaryHeader.visibility = View.VISIBLE
+                selectedPinLocation = latLong
+                mapEngine.setSelectionPoint(latLong)
+
+                val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
+                val distance = GeoUtils.calculateDistance(userLoc, latLong)
+
+                binding.tvPinLocationTitle.text = "Selected Location (موقع محدد)"
+                binding.tvPinLocationSubtitle.text = String.format(
+                    Locale.getDefault(),
+                    "%.4f, %.4f • %s away",
+                    latLong.latitude,
+                    latLong.longitude,
+                    GeoUtils.formatDistance(distance)
+                )
+                binding.cardPinSelectionCallout.visibility = View.VISIBLE
             }
         }
 
         mapEngine.onMapLongClickListener = { latLong ->
-            viewModel.setDestinationPoint(latLong)
-            binding.tvDestPointLabel.text = String.format(Locale.getDefault(), "Dest: (%.4f, %.4f)", latLong.latitude, latLong.longitude)
-            binding.cardRouteSummaryHeader.visibility = View.VISIBLE
-            Toast.makeText(this, "Destination updated from long press", Toast.LENGTH_SHORT).show()
+            selectedPinLocation = latLong
+            mapEngine.setSelectionPoint(latLong)
+
+            val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
+            val distance = GeoUtils.calculateDistance(userLoc, latLong)
+
+            binding.tvPinLocationTitle.text = "Selected Location (موقع محدد)"
+            binding.tvPinLocationSubtitle.text = String.format(
+                Locale.getDefault(),
+                "%.4f, %.4f • %s away",
+                latLong.latitude,
+                latLong.longitude,
+                GeoUtils.formatDistance(distance)
+            )
+            binding.cardPinSelectionCallout.visibility = View.VISIBLE
+        }
+
+        // 2. Handle Camera Pan Interruption & 5-Second Auto-Recenter Timer
+        mapEngine.onTrackingSuspensionChanged = { isSuspended ->
+            if (isSuspended) {
+                binding.btnRecenterFloating.visibility = View.VISIBLE
+                autoRecenterJob?.cancel()
+                autoRecenterJob = lifecycleScope.launch {
+                    kotlinx.coroutines.delay(5000L) // 5 seconds of inactivity -> auto return to vehicle
+                    if (mapEngine.isTrackingSuspended) {
+                        mapEngine.resumeTracking()
+                        binding.btnRecenterFloating.visibility = View.GONE
+                    }
+                }
+            } else {
+                autoRecenterJob?.cancel()
+                binding.btnRecenterFloating.visibility = View.GONE
+            }
         }
     }
 
@@ -200,17 +241,21 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun onPlaceSelected(place: SearchPlace) {
         hideSearchDropdown()
         binding.etSearchPlaces.setText(place.nameEn)
+        mapEngine.clearSelectionPoint()
+        binding.cardPinSelectionCallout.visibility = View.GONE
 
         // Set destination
         viewModel.setDestinationPoint(place.coordinates)
         binding.tvDestPointLabel.text = "${place.nameEn} (${place.nameAr})"
         binding.cardRouteSummaryHeader.visibility = View.VISIBLE
 
-        // If start point is not set, default to user's current GPS location
-        if (viewModel.startPoint.value == null) {
-            val userLatLong = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: GeoUtils.BAGHDAD_CENTER
+        // If start point is not set or is dynamic, use current GPS location
+        if (viewModel.startPoint.value == null || isStartPointDynamicGps) {
+            isStartPointDynamicGps = true
+            val userLatLong = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
             viewModel.setStartPoint(userLatLong)
-            binding.tvStartPointLabel.text = if (lastGpsLocation != null) "My Location" else "Baghdad Center"
+            binding.tvStartPointLabel.text = if (lastGpsLocation != null) "Start: My Location (Live GPS)" else "Start: Baghdad Center"
+            lastCalculatedStartLocation = userLatLong
         }
 
         mapEngine.centerOn(place.coordinates, 15.toByte())
@@ -254,9 +299,62 @@ class MainActivity : AppCompatActivity(), LocationListener {
         binding.btnClearRoute.setOnClickListener {
             viewModel.clearRoute()
             mapEngine.clearAllMarkersAndRoute()
+            mapEngine.clearSelectionPoint()
             binding.cardRouteSummaryHeader.visibility = View.GONE
+            binding.cardPinSelectionCallout.visibility = View.GONE
             binding.etSearchPlaces.text.clear()
             bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+            lastCalculatedStartLocation = null
+        }
+
+        // Pin Selection Callout Button: Set as Start
+        binding.btnPinSetStart.setOnClickListener {
+            val pin = selectedPinLocation ?: return@setOnClickListener
+            viewModel.setStartPoint(pin)
+            isStartPointDynamicGps = false // User manually selected fixed start point!
+            binding.tvStartPointLabel.text = String.format(Locale.getDefault(), "Start: (%.4f, %.4f)", pin.latitude, pin.longitude)
+            mapEngine.clearSelectionPoint()
+            binding.cardPinSelectionCallout.visibility = View.GONE
+            binding.cardRouteSummaryHeader.visibility = View.VISIBLE
+
+            if (viewModel.destPoint.value != null) {
+                viewModel.calculateRoute()
+            }
+        }
+
+        // Pin Selection Callout Button: Set as Destination
+        binding.btnPinSetDest.setOnClickListener {
+            val pin = selectedPinLocation ?: return@setOnClickListener
+            viewModel.setDestinationPoint(pin)
+            binding.tvDestPointLabel.text = String.format(Locale.getDefault(), "Dest: (%.4f, %.4f)", pin.latitude, pin.longitude)
+            mapEngine.clearSelectionPoint()
+            binding.cardPinSelectionCallout.visibility = View.GONE
+            binding.cardRouteSummaryHeader.visibility = View.VISIBLE
+
+            // If no manual start point set, default to live GPS user location
+            if (viewModel.startPoint.value == null || isStartPointDynamicGps) {
+                isStartPointDynamicGps = true
+                val currentLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
+                viewModel.setStartPoint(currentLoc)
+                binding.tvStartPointLabel.text = if (lastGpsLocation != null) "Start: My Location (Live GPS)" else "Start: Baghdad Center"
+                lastCalculatedStartLocation = currentLoc
+            }
+
+            viewModel.calculateRoute()
+        }
+
+        // Pin Selection Callout Button: Close
+        binding.btnPinClose.setOnClickListener {
+            selectedPinLocation = null
+            mapEngine.clearSelectionPoint()
+            binding.cardPinSelectionCallout.visibility = View.GONE
+        }
+
+        // Floating Re-center Button
+        binding.btnRecenterFloating.setOnClickListener {
+            autoRecenterJob?.cancel()
+            mapEngine.resumeTracking()
+            binding.btnRecenterFloating.visibility = View.GONE
         }
 
         // Settings Dialog (⚙️ in search bar)
@@ -359,6 +457,18 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val userLatLong = LatLong(location.latitude, location.longitude)
         val bearing = if (location.hasBearing()) location.bearing else compassManager.onAzimuthChanged?.let { mapEngine.lastUserBearing } ?: 0f
         mapEngine.setUserLocation(userLatLong, location.accuracy, bearing)
+
+        // Dynamic GPS Start Point: update route as user drives/moves along their route!
+        if (isStartPointDynamicGps && viewModel.destPoint.value != null) {
+            viewModel.setStartPoint(userLatLong)
+            binding.tvStartPointLabel.text = "Start: My Location (Live GPS)"
+
+            val lastCalc = lastCalculatedStartLocation
+            if (lastCalc == null || GeoUtils.calculateDistance(lastCalc, userLatLong) > 30.0) {
+                lastCalculatedStartLocation = userLatLong
+                viewModel.calculateRoute()
+            }
+        }
     }
 
     private fun showLandmarkPicker(isSelectingStart: Boolean) {

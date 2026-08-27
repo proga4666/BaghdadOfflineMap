@@ -63,15 +63,38 @@ class MapEngine(
 
     private var userLocationMarker: Marker? = null
 
+    var currentThemePreset: MapThemePreset = MapThemePreset.WAZE_DARK
+        private set
+
     init {
         setupMapView()
         setupGestureDetector()
+    }
+
+    private fun applyThemeBackgroundColor(preset: MapThemePreset? = currentThemePreset) {
+        val safePreset = preset ?: MapThemePreset.WAZE_DARK
+        val bgColor = when (safePreset) {
+            MapThemePreset.WAZE_DARK -> Color.parseColor("#1E232B")
+            MapThemePreset.WAZE_LIGHT -> Color.parseColor("#F5F3EF")
+            MapThemePreset.MODERN_LIGHT -> Color.parseColor("#F2EFE9")
+            MapThemePreset.MIDNIGHT_DARK -> Color.parseColor("#121212")
+            MapThemePreset.OSM_CLASSIC -> Color.parseColor("#F2EFE9")
+        }
+        mapView.setBackgroundColor(bgColor)
+        try {
+            mapView.model.displayModel.backgroundColor = bgColor
+        } catch (e: Exception) {
+            // Ignore
+        }
     }
 
     private fun setupMapView() {
         mapView.isClickable = true
         mapView.mapScaleBar.isVisible = true
         mapView.setBuiltInZoomControls(true)
+        mapView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+
+        applyThemeBackgroundColor(currentThemePreset)
 
         // Center on Baghdad & Al-Mansour with street-level zoom
         mapView.model.mapViewPosition.setCenter(GeoUtils.BAGHDAD_CENTER)
@@ -80,6 +103,24 @@ class MapEngine(
 
     private fun setupGestureDetector() {
         val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = false
+
+            override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+                if (trackingMode != TrackingMode.FREE && !isTrackingSuspended) {
+                    isTrackingSuspended = true
+                    onTrackingSuspensionChanged?.invoke(true)
+                }
+                return false
+            }
+
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+                if (trackingMode != TrackingMode.FREE && !isTrackingSuspended) {
+                    isTrackingSuspended = true
+                    onTrackingSuspensionChanged?.invoke(true)
+                }
+                return false
+            }
+
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                 val point = Point(e.x.toDouble(), e.y.toDouble())
                 val latLong = mapView.mapViewProjection.fromPixels(point.x, point.y)
@@ -105,20 +146,25 @@ class MapEngine(
         }
     }
 
-    var currentThemePreset: MapThemePreset = MapThemePreset.WAZE_DARK
-        private set
-
     fun loadMapFile(file: File): Boolean {
         return try {
             destroyLayers()
 
-            // Initialize tile cache for offline vector rendering
+            applyThemeBackgroundColor(currentThemePreset)
+
+            // Pre-render 60% beyond visible viewport to eliminate white squares during panning
+            val overdraw = 1.6
+            mapView.model.frameBufferModel.overdrawFactor = overdraw
+
+            // Initialize high-capacity dual-level tile cache (256 RAM tiles + 1024 Disk tiles)
             tileCache = AndroidUtil.createTileCache(
                 context,
                 "mapcache",
+                256,
+                1024,
                 mapView.model.displayModel.tileSize,
-                1f,
-                mapView.model.frameBufferModel.overdrawFactor
+                overdraw,
+                true
             )
 
             val newMapDataStore = MapFile(file)
@@ -141,7 +187,7 @@ class MapEngine(
                 renderTheme,
                 false,
                 true,
-                false
+                true
             )
 
             mapView.layerManager.layers.add(0, tileRendererLayer)
@@ -158,6 +204,7 @@ class MapEngine(
 
     fun setMapTheme(preset: MapThemePreset): Boolean {
         currentThemePreset = preset
+        applyThemeBackgroundColor(preset)
         val store = mapDataStore ?: return false
         val cache = tileCache ?: return false
 
@@ -184,7 +231,7 @@ class MapEngine(
                 renderTheme,
                 false,
                 true,
-                false
+                true
             )
 
             mapView.layerManager.layers.add(0, tileRendererLayer)
@@ -205,26 +252,71 @@ class MapEngine(
     var trackingMode: TrackingMode = TrackingMode.FREE
         private set
 
+    var isTrackingSuspended: Boolean = false
+        private set
+
+    var onTrackingSuspensionChanged: ((Boolean) -> Unit)? = null
+
     private var accuracyCircle: org.mapsforge.map.layer.overlay.Circle? = null
+    private var selectionMarker: Marker? = null
     var lastUserLocation: LatLong? = null
         private set
     var lastUserBearing: Float = 0f
         private set
 
+    private fun applyCameraTransform(bearing: Float) {
+        val w = mapView.width.toFloat()
+        val h = mapView.height.toFloat()
+        if (w > 0 && h > 0) {
+            val diagonal = kotlin.math.hypot(w.toDouble(), h.toDouble()).toFloat()
+            val scale = (diagonal / kotlin.math.min(w, h)) * 1.05f // 5% extra safety margin
+            mapView.scaleX = scale
+            mapView.scaleY = scale
+            mapView.pivotX = w / 2f
+            mapView.pivotY = h / 2f
+        } else {
+            mapView.scaleX = 2.5f
+            mapView.scaleY = 2.5f
+        }
+        mapView.rotation = -bearing
+    }
+
+    private fun resetCameraTransform() {
+        mapView.rotation = 0f
+        mapView.scaleX = 1.0f
+        mapView.scaleY = 1.0f
+    }
+
     fun setTrackingMode(mode: TrackingMode) {
         trackingMode = mode
+        isTrackingSuspended = false
+        onTrackingSuspensionChanged?.invoke(false)
+
         if (mode == TrackingMode.FREE) {
-            mapView.rotation = 0f
+            resetCameraTransform()
         } else if (mode == TrackingMode.FOLLOW && lastUserLocation != null) {
-            mapView.rotation = 0f
+            resetCameraTransform()
             mapView.model.mapViewPosition.setCenter(lastUserLocation)
         } else if (mode == TrackingMode.FOLLOW_AND_ROTATE && lastUserLocation != null) {
             mapView.model.mapViewPosition.setCenter(lastUserLocation)
-            mapView.pivotX = mapView.width / 2f
-            mapView.pivotY = mapView.height / 2f
-            mapView.rotation = -lastUserBearing
+            applyCameraTransform(lastUserBearing)
         }
         updateUserLocationVisuals()
+    }
+
+    fun resumeTracking() {
+        if (trackingMode == TrackingMode.FREE) return
+        isTrackingSuspended = false
+        onTrackingSuspensionChanged?.invoke(false)
+
+        val loc = lastUserLocation ?: return
+        mapView.model.mapViewPosition.setCenter(loc)
+        if (trackingMode == TrackingMode.FOLLOW_AND_ROTATE) {
+            applyCameraTransform(lastUserBearing)
+        } else {
+            resetCameraTransform()
+        }
+        mapView.repaint()
     }
 
     fun setUserLocation(
@@ -274,28 +366,45 @@ class MapEngine(
 
         // 2. Directional Navigation Puck
         userLocationMarker?.let { mapView.layerManager.layers.remove(it) }
-        val puckRotation = if (trackingMode == TrackingMode.FOLLOW_AND_ROTATE) 0f else lastUserBearing
+        val puckRotation = if (trackingMode == TrackingMode.FOLLOW_AND_ROTATE && !isTrackingSuspended) 0f else lastUserBearing
         val arrowBitmap = createRotatedArrowBitmap(puckRotation)
         val marker = Marker(latLong, arrowBitmap, 0, 0)
         userLocationMarker = marker
         mapView.layerManager.layers.add(marker)
 
-        // 3. Camera behavior
-        when (trackingMode) {
-            TrackingMode.FOLLOW -> {
-                mapView.model.mapViewPosition.setCenter(latLong)
-                mapView.rotation = 0f
+        // 3. Camera behavior (Only lock camera if user is NOT currently panning)
+        if (!isTrackingSuspended) {
+            when (trackingMode) {
+                TrackingMode.FOLLOW -> {
+                    mapView.model.mapViewPosition.setCenter(latLong)
+                    resetCameraTransform()
+                }
+                TrackingMode.FOLLOW_AND_ROTATE -> {
+                    mapView.model.mapViewPosition.setCenter(latLong)
+                    applyCameraTransform(lastUserBearing)
+                }
+                TrackingMode.FREE -> {}
             }
-            TrackingMode.FOLLOW_AND_ROTATE -> {
-                mapView.model.mapViewPosition.setCenter(latLong)
-                mapView.pivotX = mapView.width / 2f
-                mapView.pivotY = mapView.height / 2f
-                mapView.rotation = -lastUserBearing
-            }
-            TrackingMode.FREE -> {}
         }
 
         mapView.repaint()
+    }
+
+    fun setSelectionPoint(latLong: LatLong?) {
+        selectionMarker?.let { mapView.layerManager.layers.remove(it) }
+        selectionMarker = null
+
+        if (latLong != null) {
+            val bitmap = createMarkerBitmap(R.drawable.ic_dest_pin)
+            val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
+            selectionMarker = marker
+            mapView.layerManager.layers.add(marker)
+        }
+        mapView.repaint()
+    }
+
+    fun clearSelectionPoint() {
+        setSelectionPoint(null)
     }
 
     private fun createRotatedArrowBitmap(degrees: Float): Bitmap {
