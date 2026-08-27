@@ -22,16 +22,16 @@ class CompassSensorManager(context: Context) : SensorEventListener {
     private var hasGeomagnetic = false
 
     private var currentAzimuth = 0f
-    private val smoothingAlpha = 0.25f // Low pass filter factor
+    private val smoothingAlpha = 0.18f // Smooth low-pass filter factor
 
     var onAzimuthChanged: ((Float) -> Unit)? = null
 
     fun start() {
         if (rotationSensor != null) {
-            sensorManager.registerListener(this, rotationSensor, SensorManager.SENSOR_DELAY_UI)
+            sensorManager.registerListener(this, rotationSensor, SensorManager.SENSOR_DELAY_GAME)
         } else {
-            if (accelSensor != null) sensorManager.registerListener(this, accelSensor, SensorManager.SENSOR_DELAY_UI)
-            if (magnetSensor != null) sensorManager.registerListener(this, magnetSensor, SensorManager.SENSOR_DELAY_UI)
+            if (accelSensor != null) sensorManager.registerListener(this, accelSensor, SensorManager.SENSOR_DELAY_GAME)
+            if (magnetSensor != null) sensorManager.registerListener(this, magnetSensor, SensorManager.SENSOR_DELAY_GAME)
         }
     }
 

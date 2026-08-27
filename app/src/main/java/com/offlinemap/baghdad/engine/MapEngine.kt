@@ -268,20 +268,93 @@ class MapEngine(
     private var lastDestLocation: LatLong? = null
     private var lastSelectionLocation: LatLong? = null
 
-    private fun applyCameraTransform(bearing: Float) {
+    private var cameraAnimator: android.animation.ValueAnimator? = null
+    private var rotationAnimator: android.animation.ValueAnimator? = null
+
+    fun animateTo(target: LatLong, targetZoom: Byte? = null, durationMs: Long = 450L) {
+        cameraAnimator?.cancel()
+        val startCenter = mapView.model.mapViewPosition.center ?: GeoUtils.BAGHDAD_CENTER
+        val startLat = startCenter.latitude
+        val startLon = startCenter.longitude
+        val targetLat = target.latitude
+        val targetLon = target.longitude
+
+        val startZoom = mapView.model.mapViewPosition.zoomLevel.toInt()
+        val endZoom = targetZoom?.toInt() ?: startZoom
+
+        cameraAnimator = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = durationMs
+            interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+            addUpdateListener { animator ->
+                val fraction = animator.animatedValue as Float
+                val curLat = startLat + (targetLat - startLat) * fraction
+                val curLon = startLon + (targetLon - startLon) * fraction
+                mapView.model.mapViewPosition.setCenter(LatLong(curLat, curLon))
+
+                if (endZoom != startZoom && fraction >= 0.5f) {
+                    mapView.model.mapViewPosition.zoomLevel = endZoom.toByte()
+                }
+                mapView.repaint()
+            }
+            start()
+        }
+    }
+
+    private fun applyCameraTransform(bearing: Float, animated: Boolean = false) {
         mapView.scaleX = 1.0f
         mapView.scaleY = 1.0f
         mapView.pivotX = mapView.width / 2f
         mapView.pivotY = mapView.height / 2f
-        mapView.rotation = -bearing
-        updateAllPinRotations()
+
+        if (animated) {
+            val curRot = mapView.rotation
+            var diff = (-bearing - curRot) % 360f
+            if (diff > 180f) diff -= 360f
+            if (diff < -180f) diff += 360f
+            val targetRot = curRot + diff
+
+            rotationAnimator?.cancel()
+            rotationAnimator = android.animation.ValueAnimator.ofFloat(curRot, targetRot).apply {
+                duration = 260L
+                interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+                addUpdateListener { anim ->
+                    mapView.rotation = anim.animatedValue as Float
+                    updateAllPinRotations()
+                    mapView.repaint()
+                }
+                start()
+            }
+        } else {
+            mapView.rotation = -bearing
+            updateAllPinRotations()
+        }
     }
 
-    private fun resetCameraTransform() {
-        mapView.rotation = 0f
+    private fun resetCameraTransform(animated: Boolean = true) {
         mapView.scaleX = 1.0f
         mapView.scaleY = 1.0f
-        updateAllPinRotations()
+        if (animated && mapView.rotation != 0f) {
+            val curRot = mapView.rotation
+            var diff = (0f - curRot) % 360f
+            if (diff > 180f) diff -= 360f
+            if (diff < -180f) diff += 360f
+            val targetRot = curRot + diff
+
+            rotationAnimator?.cancel()
+            rotationAnimator = android.animation.ValueAnimator.ofFloat(curRot, targetRot).apply {
+                duration = 300L
+                interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+                addUpdateListener { anim ->
+                    mapView.rotation = anim.animatedValue as Float
+                    updateAllPinRotations()
+                    mapView.repaint()
+                }
+                start()
+            }
+        } else {
+            mapView.rotation = 0f
+            updateAllPinRotations()
+        }
     }
 
     private fun getPinCounterRotation(): Float {
@@ -326,13 +399,13 @@ class MapEngine(
         onTrackingSuspensionChanged?.invoke(false)
 
         if (mode == TrackingMode.FREE) {
-            resetCameraTransform()
+            resetCameraTransform(animated = true)
         } else if (mode == TrackingMode.FOLLOW && lastUserLocation != null) {
-            resetCameraTransform()
-            mapView.model.mapViewPosition.setCenter(lastUserLocation)
+            resetCameraTransform(animated = true)
+            animateTo(lastUserLocation!!, 15.toByte())
         } else if (mode == TrackingMode.FOLLOW_AND_ROTATE && lastUserLocation != null) {
-            mapView.model.mapViewPosition.setCenter(lastUserLocation)
-            applyCameraTransform(lastUserBearing)
+            animateTo(lastUserLocation!!, 16.toByte())
+            applyCameraTransform(lastUserBearing, animated = true)
         }
         updateUserLocationVisuals()
     }
@@ -343,11 +416,11 @@ class MapEngine(
         onTrackingSuspensionChanged?.invoke(false)
 
         val loc = lastUserLocation ?: return
-        mapView.model.mapViewPosition.setCenter(loc)
+        animateTo(loc, 16.toByte(), durationMs = 400L)
         if (trackingMode == TrackingMode.FOLLOW_AND_ROTATE) {
-            applyCameraTransform(lastUserBearing)
+            applyCameraTransform(lastUserBearing, animated = true)
         } else {
-            resetCameraTransform()
+            resetCameraTransform(animated = true)
         }
         mapView.repaint()
     }

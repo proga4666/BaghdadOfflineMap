@@ -94,6 +94,34 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
     }
 
+    private fun View.showAnimated(duration: Long = 260L) {
+        if (this.visibility == View.VISIBLE && this.alpha == 1f) return
+        this.clearAnimation()
+        this.visibility = View.VISIBLE
+        this.alpha = 0f
+        this.translationY = 25f
+        this.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setDuration(duration)
+            .setInterpolator(androidx.interpolator.view.animation.FastOutSlowInInterpolator())
+            .start()
+    }
+
+    private fun View.hideAnimated(duration: Long = 200L) {
+        if (this.visibility == View.GONE) return
+        this.clearAnimation()
+        this.animate()
+            .alpha(0f)
+            .translationY(25f)
+            .setDuration(duration)
+            .setInterpolator(androidx.interpolator.view.animation.FastOutSlowInInterpolator())
+            .withEndAction {
+                this.visibility = View.GONE
+            }
+            .start()
+    }
+
     private fun setupMapView() {
         mapView = MapView(this)
         val metrics = resources.displayMetrics
@@ -133,7 +161,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                     latLong.longitude,
                     GeoUtils.formatDistance(distance)
                 )
-                binding.cardPinSelectionCallout.visibility = View.VISIBLE
+                binding.cardPinSelectionCallout.showAnimated()
             }
         }
 
@@ -152,24 +180,24 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 latLong.longitude,
                 GeoUtils.formatDistance(distance)
             )
-            binding.cardPinSelectionCallout.visibility = View.VISIBLE
+            binding.cardPinSelectionCallout.showAnimated()
         }
 
         // 2. Handle Camera Pan Interruption & 5-Second Auto-Recenter Timer
         mapEngine.onTrackingSuspensionChanged = { isSuspended ->
             if (isSuspended) {
-                binding.btnRecenterFloating.visibility = View.VISIBLE
+                binding.btnRecenterFloating.showAnimated()
                 autoRecenterJob?.cancel()
                 autoRecenterJob = lifecycleScope.launch {
                     kotlinx.coroutines.delay(5000L) // 5 seconds of inactivity -> auto return to vehicle
                     if (mapEngine.isTrackingSuspended) {
                         mapEngine.resumeTracking()
-                        binding.btnRecenterFloating.visibility = View.GONE
+                        binding.btnRecenterFloating.hideAnimated()
                     }
                 }
             } else {
                 autoRecenterJob?.cancel()
-                binding.btnRecenterFloating.visibility = View.GONE
+                binding.btnRecenterFloating.hideAnimated()
             }
         }
     }
@@ -211,17 +239,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
                         searchAdapter.updatePlaces(defaultList)
                     }
                 }
-                binding.cardSearchResults.visibility = View.VISIBLE
-                binding.containerFloatingButtons.visibility = View.GONE
-                binding.btnRecenterFloating.visibility = View.GONE
-                binding.cardPinSelectionCallout.visibility = View.GONE
+                binding.cardSearchResults.showAnimated()
+                binding.containerFloatingButtons.hideAnimated()
+                binding.btnRecenterFloating.hideAnimated()
+                binding.cardPinSelectionCallout.hideAnimated()
                 binding.btnClearSearch.visibility = View.VISIBLE
             } else {
                 binding.layoutSearchHistoryHeader.visibility = View.GONE
                 binding.btnClearSearch.visibility = View.VISIBLE
-                binding.containerFloatingButtons.visibility = View.GONE
-                binding.btnRecenterFloating.visibility = View.GONE
-                binding.cardPinSelectionCallout.visibility = View.GONE
+                binding.containerFloatingButtons.hideAnimated()
+                binding.btnRecenterFloating.hideAnimated()
+                binding.cardPinSelectionCallout.hideAnimated()
             }
         }
 
@@ -302,12 +330,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
         hideSearchDropdown()
         binding.etSearchPlaces.setText(place.nameEn)
         mapEngine.clearSelectionPoint()
-        binding.cardPinSelectionCallout.visibility = View.GONE
+        binding.cardPinSelectionCallout.hideAnimated()
 
         // Set destination
         viewModel.setDestinationPoint(place.coordinates)
         binding.tvDestPointLabel.text = "${place.nameEn} (${place.nameAr})"
-        binding.cardRouteSummaryHeader.visibility = View.VISIBLE
+        binding.cardRouteSummaryHeader.showAnimated()
 
         // If start point is not set or is dynamic, use current GPS location
         if (viewModel.startPoint.value == null || isStartPointDynamicGps) {
@@ -318,16 +346,16 @@ class MainActivity : AppCompatActivity(), LocationListener {
             lastCalculatedStartLocation = userLatLong
         }
 
-        mapEngine.centerOn(place.coordinates, 15.toByte())
+        mapEngine.animateTo(place.coordinates, 15.toByte(), durationMs = 500L)
         viewModel.calculateRoute()
     }
 
     private fun hideSearchDropdown() {
-        binding.cardSearchResults.visibility = View.GONE
+        binding.cardSearchResults.hideAnimated()
         binding.layoutSearchHistoryHeader.visibility = View.GONE
-        binding.containerFloatingButtons.visibility = View.VISIBLE
+        binding.containerFloatingButtons.showAnimated()
         if (mapEngine.isTrackingSuspended) {
-            binding.btnRecenterFloating.visibility = View.VISIBLE
+            binding.btnRecenterFloating.showAnimated()
         }
         binding.etSearchPlaces.clearFocus()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
@@ -511,12 +539,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
             if (best != null) {
                 onLocationChanged(best)
-                mapEngine.centerOn(LatLong(best.latitude, best.longitude), 15.toByte())
+                mapEngine.animateTo(LatLong(best.latitude, best.longitude), 15.toByte(), durationMs = 500L)
             } else {
-                mapEngine.centerOn(GeoUtils.BAGHDAD_CENTER, 14.toByte())
+                mapEngine.animateTo(GeoUtils.BAGHDAD_CENTER, 14.toByte(), durationMs = 500L)
             }
         } catch (e: Exception) {
-            mapEngine.centerOn(GeoUtils.BAGHDAD_CENTER, 14.toByte())
+            mapEngine.animateTo(GeoUtils.BAGHDAD_CENTER, 14.toByte(), durationMs = 500L)
         }
     }
 
