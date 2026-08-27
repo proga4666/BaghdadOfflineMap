@@ -22,7 +22,12 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
             }
         }
 
-    var isArabic: Boolean = isSystemLanguageArabic()
+    var isArabic: Boolean
+        get() = prefs.getBoolean("is_arabic", isSystemLanguageArabic())
+        set(value) {
+            prefs.edit().putBoolean("is_arabic", value).apply()
+            updateLanguage()
+        }
 
     init {
         try {
@@ -34,26 +39,29 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            val ttsInstance = tts ?: return
-            val arabicLocale = Locale("ar")
-            val available = ttsInstance.isLanguageAvailable(arabicLocale)
-
-            if (isArabic && (available == TextToSpeech.LANG_AVAILABLE || available == TextToSpeech.LANG_COUNTRY_AVAILABLE || available == TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE)) {
-                ttsInstance.language = arabicLocale
-                isArabic = true
-                Log.i("VoiceGuidance", "TTS initialized with Arabic language support.")
-            } else {
-                ttsInstance.language = Locale.ENGLISH
-                isArabic = false
-                Log.i("VoiceGuidance", "TTS initialized with English fallback.")
-            }
-
-            ttsInstance.setPitch(1.0f)
-            ttsInstance.setSpeechRate(0.95f) // Natural speaking pace
             isInitialized = true
+            updateLanguage()
+            val ttsInstance = tts
+            ttsInstance?.setPitch(1.0f)
+            ttsInstance?.setSpeechRate(0.95f) // Natural speaking pace
+            Log.i("VoiceGuidance", "TTS initialized successfully.")
         } else {
             Log.e("VoiceGuidance", "TTS Initialization failed with status: $status")
             isInitialized = false
+        }
+    }
+
+    fun updateLanguage() {
+        val ttsInstance = tts ?: return
+        val arabicLocale = Locale("ar")
+        val available = ttsInstance.isLanguageAvailable(arabicLocale)
+
+        if (isArabic && (available == TextToSpeech.LANG_AVAILABLE || available == TextToSpeech.LANG_COUNTRY_AVAILABLE || available == TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE)) {
+            ttsInstance.language = arabicLocale
+            Log.i("VoiceGuidance", "TTS switched to Arabic language.")
+        } else {
+            ttsInstance.language = Locale.ENGLISH
+            Log.i("VoiceGuidance", "TTS switched to English language.")
         }
     }
 

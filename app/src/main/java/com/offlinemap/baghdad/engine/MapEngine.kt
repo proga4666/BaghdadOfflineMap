@@ -101,6 +101,20 @@ class MapEngine(
         mapView.model.mapViewPosition.zoomLevel = 14.toByte()
     }
 
+    var mapTilt: Float = 0f
+        set(value) {
+            field = value.coerceIn(0f, 55f)
+            mapView.cameraDistance = 8000f * context.resources.displayMetrics.density
+            mapView.rotationX = field
+            mapView.repaint()
+        }
+
+    private var initialPointerAngle = 0.0
+    private var initialMapRotation = 0f
+    private var initialMidY = 0f
+    private var initialTilt = 0f
+    private var isTwoFingerGestureActive = false
+
     private fun setupGestureDetector() {
         val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean = false
@@ -142,6 +156,47 @@ class MapEngine(
 
         mapView.setOnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event)
+
+            when (event.actionMasked) {
+                MotionEvent.ACTION_POINTER_DOWN -> {
+                    if (event.pointerCount == 2) {
+                        isTwoFingerGestureActive = true
+                        val dx = (event.getX(1) - event.getX(0)).toDouble()
+                        val dy = (event.getY(1) - event.getY(0)).toDouble()
+                        initialPointerAngle = Math.toDegrees(kotlin.math.atan2(dy, dx))
+                        initialMapRotation = mapView.rotation
+                        initialMidY = (event.getY(0) + event.getY(1)) / 2f
+                        initialTilt = mapTilt
+
+                        if (trackingMode != TrackingMode.FREE && !isTrackingSuspended) {
+                            isTrackingSuspended = true
+                            onTrackingSuspensionChanged?.invoke(true)
+                        }
+                    }
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (event.pointerCount >= 2 && isTwoFingerGestureActive) {
+                        val dx = (event.getX(1) - event.getX(0)).toDouble()
+                        val dy = (event.getY(1) - event.getY(0)).toDouble()
+                        val currentAngle = Math.toDegrees(kotlin.math.atan2(dy, dx))
+                        val angleDelta = (currentAngle - initialPointerAngle).toFloat()
+                        mapView.rotation = initialMapRotation + angleDelta
+                        updateAllPinRotations()
+
+                        val currentMidY = (event.getY(0) + event.getY(1)) / 2f
+                        val deltaY = currentMidY - initialMidY
+                        val newTilt = (initialTilt - deltaY * 0.16f).coerceIn(0f, 55f)
+                        mapTilt = newTilt
+
+                        mapView.repaint()
+                    }
+                }
+                MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (event.pointerCount <= 2) {
+                        isTwoFingerGestureActive = false
+                    }
+                }
+            }
             false
         }
     }
@@ -151,17 +206,18 @@ class MapEngine(
             destroyLayers()
 
             applyThemeBackgroundColor(currentThemePreset)
+            mapView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
 
-            // Pre-render 60% beyond visible viewport to eliminate white squares during panning
-            val overdraw = 1.6
+            // Pre-render 75% beyond visible viewport to eliminate white squares during panning
+            val overdraw = 1.75
             mapView.model.frameBufferModel.overdrawFactor = overdraw
 
-            // Initialize high-capacity dual-level tile cache (256 RAM tiles + 1024 Disk tiles)
+            // Initialize high-capacity dual-level tile cache (768 RAM tiles = ~200MB pool + 2048 Disk tiles)
             tileCache = AndroidUtil.createTileCache(
                 context,
                 "mapcache",
-                256,
-                1024,
+                768,
+                2048,
                 mapView.model.displayModel.tileSize,
                 overdraw,
                 true

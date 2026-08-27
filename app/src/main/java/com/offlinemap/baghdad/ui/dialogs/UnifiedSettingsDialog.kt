@@ -59,6 +59,15 @@ class UnifiedSettingsDialog : BottomSheetDialogFragment() {
             com.offlinemap.baghdad.data.repository.SearchProvider.LOCAL_OFFLINE -> binding.radioSearchOffline.isChecked = true
         }
 
+        // 3.5 Voice Language state
+        val voicePrefs = requireContext().getSharedPreferences("voice_guidance_prefs", Context.MODE_PRIVATE)
+        val isArabic = voicePrefs.getBoolean("is_arabic", java.util.Locale.getDefault().language.startsWith("ar"))
+        if (isArabic) {
+            binding.radioVoiceArabic.isChecked = true
+        } else {
+            binding.radioVoiceEnglish.isChecked = true
+        }
+
         binding.etGoogleApiKey.setText(viewModel.googleApiKey.value)
 
         // 4. Offline map state
@@ -109,6 +118,9 @@ class UnifiedSettingsDialog : BottomSheetDialogFragment() {
                 binding.radioThemeDarkMidnight.id -> MapThemePreset.MIDNIGHT_DARK
                 else -> MapThemePreset.WAZE_DARK
             }
+
+            val isArabicSelected = binding.radioGroupVoiceLang.checkedRadioButtonId == binding.radioVoiceArabic.id
+            voicePrefs.edit().putBoolean("is_arabic", isArabicSelected).apply()
 
             val prefs = requireContext().getSharedPreferences("baghdad_map_prefs", Context.MODE_PRIVATE)
             prefs.edit().putString("map_theme_preset", selectedTheme.name).apply()

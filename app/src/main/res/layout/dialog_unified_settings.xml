@@ -12,37 +12,61 @@
         android:orientation="vertical"
         android:padding="20dp">
 
+        <!-- Drag Handle -->
         <View
-            android:layout_width="40dp"
-            android:layout_height="4dp"
+            android:layout_width="44dp"
+            android:layout_height="5dp"
             android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="12dp"
-            android:background="#CCCCCC" />
+            android:layout_marginBottom="14dp"
+            android:background="@drawable/bg_download_banner" />
 
-        <TextView
+        <!-- Header -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Navigation &amp; Map Settings"
-            android:textColor="@color/text_primary"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="Manage offline maps, live traffic engine, and cartography themes."
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp" />
+            <ImageView
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="@drawable/bg_download_banner"
+                android:padding="8dp"
+                android:src="@drawable/ic_settings"
+                app:tint="@color/primary" />
 
-        <!-- 1. Map Theme Selection Card -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Navigation &amp; Map Settings"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="إعدادات الخريطة والملاحة والتوجيه الصوتي"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 1. Map Theme & Cartography Style Card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             app:cardBackgroundColor="@color/surface"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="0dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
             app:strokeColor="@color/divider"
             app:strokeWidth="1dp">
 
@@ -50,12 +74,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="14dp">
+                android:padding="16dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="🎨 Map Theme &amp; Style"
+                    android:text="🎨 Map Themes &amp; 3D Visuals"
                     android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:textStyle="bold" />
@@ -70,7 +94,8 @@
                         android:id="@+id/radioThemeWazeDark"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="🚗 Waze Dark (Clean &amp; Minimalist)"
+                        android:text="🚗 Waze Dark (Clean &amp; High-Contrast)"
+                        android:textColor="@color/text_primary"
                         android:textSize="13sp" />
 
                     <RadioButton
@@ -78,6 +103,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="☀️ Waze Light (Clean Minimalist)"
+                        android:textColor="@color/text_primary"
                         android:textSize="13sp" />
 
                     <RadioButton
@@ -85,26 +111,39 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="🗺️ Google Maps Clean Style"
+                        android:textColor="@color/text_primary"
                         android:textSize="13sp" />
 
                     <RadioButton
                         android:id="@+id/radioThemeDarkMidnight"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="🌙 Midnight Dark (High-Contrast)"
+                        android:text="🌙 Midnight Dark (OLED Black)"
+                        android:textColor="@color/text_primary"
                         android:textSize="13sp" />
                 </RadioGroup>
+
+                <!-- 3D Tilt Gesture Hint -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_download_banner"
+                    android:padding="10dp"
+                    android:text="✌️ Tip: Drag with two fingers up/down to adjust 3D camera tilt, or twist to rotate the map!"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 2. Routing Strategy & Live Traffic Card -->
+        <!-- 2. Voice Guidance & Speech Card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             app:cardBackgroundColor="@color/surface"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="0dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
             app:strokeColor="@color/divider"
             app:strokeWidth="1dp">
 
@@ -112,12 +151,62 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="14dp">
+                android:padding="16dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="🚦 Routing Engine &amp; Traffic"
+                    android:text="🗣️ Voice Turn-by-Turn Guidance"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <RadioGroup
+                    android:id="@+id/radioGroupVoiceLang"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp">
+
+                    <RadioButton
+                        android:id="@+id/radioVoiceArabic"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="🇮🇶 Arabic (العربية - صوت واضح وتوجيه دقيق)"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioVoiceEnglish"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="🇬🇧 English (US / UK Natural Voice)"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp" />
+                </RadioGroup>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 3. Routing Engine & Live Traffic Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="@color/surface"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/divider"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🚦 Routing Strategy &amp; Traffic"
                     android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:textStyle="bold" />
@@ -132,7 +221,8 @@
                         android:id="@+id/radioAuto"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="🔄 Auto (Live Traffic when online, GraphHopper offline)"
+                        android:text="🔄 Auto (Live Traffic online, GraphHopper offline)"
+                        android:textColor="@color/text_primary"
                         android:textSize="13sp" />
 
                     <RadioButton
@@ -140,6 +230,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="🟢 Google Directions (Live Traffic Preferred)"
+                        android:textColor="@color/text_primary"
                         android:textSize="13sp" />
 
                     <RadioButton
@@ -147,46 +238,20 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="⚡ 100% Offline (GraphHopper Local Graph Only)"
+                        android:textColor="@color/text_primary"
                         android:textSize="13sp" />
                 </RadioGroup>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="Google Maps API Key (Optional for Live Traffic)"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputLayoutApiKey"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    app:boxStrokeColor="@color/primary"
-                    app:endIconMode="clear_text"
-                    app:hintEnabled="false">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etGoogleApiKey"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="AIzaSy..."
-                        android:inputType="textNoSuggestions"
-                        android:textSize="13sp" />
-                </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 3. Search Engine / Geocoding Provider Card -->
+        <!-- 4. Search & POI Engine Card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             app:cardBackgroundColor="@color/surface"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="0dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
             app:strokeColor="@color/divider"
             app:strokeWidth="1dp">
 
@@ -194,12 +259,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="14dp">
+                android:padding="16dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="🔍 Place Search Engine"
+                    android:text="🔍 Search &amp; Place Finding Engine"
                     android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:textStyle="bold" />
@@ -214,41 +279,45 @@
                         android:id="@+id/radioSearchAuto"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="🔄 Auto (Google -> Free Photon OSM -> Offline)"
+                        android:text="🔄 Auto Hybrid (Google Places online, Offline fallback)"
+                        android:textColor="@color/text_primary"
                         android:textSize="13sp" />
 
                     <RadioButton
                         android:id="@+id/radioSearchGoogle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="🟢 Google Places API (With Key)"
+                        android:text="🟢 Google Places API"
+                        android:textColor="@color/text_primary"
                         android:textSize="13sp" />
 
                     <RadioButton
                         android:id="@+id/radioSearchPhoton"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="🌐 Photon / OpenStreetMap (100% Free Online, No Key)"
+                        android:text="🌐 OpenStreetMap Photon Geocoder"
+                        android:textColor="@color/text_primary"
                         android:textSize="13sp" />
 
                     <RadioButton
                         android:id="@+id/radioSearchOffline"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="⚡ Local Offline Index Only"
+                        android:text="⚡ 100% Offline POI Database (Instant Local)"
+                        android:textColor="@color/text_primary"
                         android:textSize="13sp" />
                 </RadioGroup>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 3. Offline Maps Management Card -->
+        <!-- 5. Google API Key Card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             app:cardBackgroundColor="@color/surface"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="0dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
             app:strokeColor="@color/divider"
             app:strokeWidth="1dp">
 
@@ -256,12 +325,58 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="14dp">
+                android:padding="16dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="🗺️ Offline Map Storage"
+                    android:text="🔑 Google Maps Platform API Key"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="Google Directions &amp; Places API Key"
+                    app:boxBackgroundColor="@color/surface"
+                    app:boxCornerRadiusBottomEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp"
+                    app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusTopStart="12dp">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etGoogleApiKey"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textPassword"
+                        android:textSize="13sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 6. Offline Storage & Brain Diagnostics Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="@color/surface"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/divider"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="💾 Offline Map &amp; Memory Pool"
                     android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:textStyle="bold" />
@@ -270,42 +385,48 @@
                     android:id="@+id/tvActiveMapStatus"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Active Map: iraq.map (98 MB)"
+                    android:layout_marginTop="6dp"
+                    android:text="Active Map: baghdad.map (35 MB) • RAM Pool: 200 MB"
                     android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tvLearningStats"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="💾 Saved Trips: 0  •  🧠 Learned Corridors: 0"
+                    android:textColor="@color/accent"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnManageOfflinePackages"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Download &amp; Update Offline Maps"
-                    app:icon="@drawable/ic_download" />
+                    android:layout_height="44dp"
+                    android:layout_marginTop="12dp"
+                    android:text="📦 Manage Offline Packages"
+                    android:textColor="@color/primary"
+                    app:cornerRadius="12dp"
+                    app:strokeColor="@color/primary" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
-
-        <!-- 4. Learned Corridors Statistics -->
-        <TextView
-            android:id="@+id/tvLearningStats"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/bg_download_banner"
-            android:padding="10dp"
-            android:text="💾 Saved Trips: 0  •  🧠 Google-Preferred Corridors: 0"
-            android:textColor="@color/primary_dark"
-            android:textSize="12sp" />
 
         <!-- Save Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnSaveAllSettings"
-            style="@style/Widget.MaterialComponents.Button"
+            style="@style/Widget.Material3.Button"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Save &amp; Apply" />
+            android:layout_height="50dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="12dp"
+            android:backgroundTint="@color/primary"
+            android:text="Save &amp; Apply Settings (حفظ الإعدادات)"
+            android:textColor="@color/white"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            app:cornerRadius="14dp" />
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>
