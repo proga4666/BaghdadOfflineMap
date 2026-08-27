@@ -10,7 +10,7 @@
     android:orientation="vertical"
     android:padding="16dp"
     app:behavior_hideable="true"
-    app:behavior_peekHeight="130dp"
+    app:behavior_peekHeight="170dp"
     app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
 
     <!-- Drag Handle -->
@@ -21,7 +21,7 @@
         android:layout_marginBottom="12dp"
         android:background="#CCCCCC" />
 
-    <!-- Route Summary Header -->
+    <!-- 1. Route Summary Metrics (Duration, Distance, Status) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -71,7 +71,7 @@
                 android:layout_marginTop="2dp"
                 android:text="-- km"
                 android:textColor="@color/text_secondary"
-                android:textSize="14sp" />
+                android:textSize="13sp" />
 
             <TextView
                 android:id="@+id/tvRouteSummary"
@@ -99,7 +99,153 @@
         android:layout_marginVertical="10dp"
         android:background="@color/divider" />
 
-    <!-- Step by Step Turn Header -->
+    <!-- 2. Integrated Start & Destination Point Rows -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Start Row -->
+        <LinearLayout
+            android:id="@+id/rowStartPoint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingVertical="4dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_start_pin" />
+
+            <TextView
+                android:id="@+id/tvStartPointLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Start Point"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Destination Row -->
+        <LinearLayout
+            android:id="@+id/rowDestPoint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingVertical="4dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_dest_pin" />
+
+            <TextView
+                android:id="@+id/tvDestPointLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Destination Point"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- 3. Integrated Vehicle Mode Toggles (Drive / Bike / Walk) & Clear Button -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toggleModeGroup"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                app:checkedButton="@id/btnModeCar"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnModeCar"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:padding="0dp"
+                    android:text="@string/car"
+                    android:textSize="11sp"
+                    app:icon="@drawable/ic_car"
+                    app:iconGravity="textStart"
+                    app:iconSize="14dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnModeBike"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:padding="0dp"
+                    android:text="@string/bike"
+                    android:textSize="11sp"
+                    app:icon="@drawable/ic_bike"
+                    app:iconGravity="textStart"
+                    app:iconSize="14dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnModeFoot"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:padding="0dp"
+                    android:text="@string/foot"
+                    android:textSize="11sp"
+                    app:icon="@drawable/ic_walk"
+                    app:iconGravity="textStart"
+                    app:iconSize="14dp" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnClearRoute"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:layout_marginStart="6dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="Clear"
+                android:textColor="@color/marker_dest"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="10dp"
+        android:background="@color/divider" />
+
+    <!-- 4. Turn-by-Turn Instructions -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -113,7 +259,7 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerInstructions"
         android:layout_width="match_parent"
-        android:layout_height="260dp"
+        android:layout_height="240dp"
         android:nestedScrollingEnabled="true"
         tools:listitem="@layout/item_instruction" />
 

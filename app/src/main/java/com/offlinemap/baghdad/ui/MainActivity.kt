@@ -334,15 +334,14 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
         // Set destination
         viewModel.setDestinationPoint(place.coordinates)
-        binding.tvDestPointLabel.text = "${place.nameEn} (${place.nameAr})"
-        binding.cardRouteSummaryHeader.showAnimated()
+        binding.bottomSheetRoute.tvDestPointLabel.text = "${place.nameEn} (${place.nameAr})"
 
         // If start point is not set or is dynamic, use current GPS location
         if (viewModel.startPoint.value == null || isStartPointDynamicGps) {
             isStartPointDynamicGps = true
             val userLatLong = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
             viewModel.setStartPoint(userLatLong)
-            binding.tvStartPointLabel.text = if (lastGpsLocation != null) "Start: My Location (Live GPS)" else "Start: Baghdad Center"
+            binding.bottomSheetRoute.tvStartPointLabel.text = if (lastGpsLocation != null) "Start: My Location (Live GPS)" else "Start: Baghdad Center"
             lastCalculatedStartLocation = userLatLong
         }
 
@@ -367,15 +366,15 @@ class MainActivity : AppCompatActivity(), LocationListener {
         // Bottom Sheet
         bottomSheetBehavior = BottomSheetBehavior.from(binding.bottomSheetRoute.routeDetailsBottomSheet)
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
-        bottomSheetBehavior.peekHeight = 260
+        bottomSheetBehavior.peekHeight = 220
 
         // Instructions List
         instructionAdapter = InstructionAdapter()
         binding.bottomSheetRoute.recyclerInstructions.layoutManager = LinearLayoutManager(this)
         binding.bottomSheetRoute.recyclerInstructions.adapter = instructionAdapter
 
-        // Vehicle Mode Toggles
-        binding.toggleModeGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+        // Vehicle Mode Toggles (Integrated in Bottom Sheet)
+        binding.bottomSheetRoute.toggleModeGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 val mode = when (checkedId) {
                     R.id.btnModeCar -> "car"
@@ -387,16 +386,15 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
         }
 
-        // Point Picker rows
-        binding.rowStartPoint.setOnClickListener { showLandmarkPicker(isSelectingStart = true) }
-        binding.rowDestPoint.setOnClickListener { showLandmarkPicker(isSelectingStart = false) }
+        // Point Picker rows (Integrated in Bottom Sheet)
+        binding.bottomSheetRoute.rowStartPoint.setOnClickListener { showLandmarkPicker(isSelectingStart = true) }
+        binding.bottomSheetRoute.rowDestPoint.setOnClickListener { showLandmarkPicker(isSelectingStart = false) }
 
-        // Clear button
-        binding.btnClearRoute.setOnClickListener {
+        // Clear button (Integrated in Bottom Sheet)
+        binding.bottomSheetRoute.btnClearRoute.setOnClickListener {
             viewModel.clearRoute()
             mapEngine.clearAllMarkersAndRoute()
             mapEngine.clearSelectionPoint()
-            binding.cardRouteSummaryHeader.visibility = View.GONE
             binding.cardPinSelectionCallout.visibility = View.GONE
             binding.etSearchPlaces.text.clear()
             bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
@@ -408,10 +406,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
             val pin = selectedPinLocation ?: return@setOnClickListener
             viewModel.setStartPoint(pin)
             isStartPointDynamicGps = false // User manually selected fixed start point!
-            binding.tvStartPointLabel.text = String.format(Locale.getDefault(), "Start: (%.4f, %.4f)", pin.latitude, pin.longitude)
+            binding.bottomSheetRoute.tvStartPointLabel.text = String.format(Locale.getDefault(), "Start: (%.4f, %.4f)", pin.latitude, pin.longitude)
             mapEngine.clearSelectionPoint()
             binding.cardPinSelectionCallout.visibility = View.GONE
-            binding.cardRouteSummaryHeader.visibility = View.VISIBLE
 
             if (viewModel.destPoint.value != null) {
                 viewModel.calculateRoute()
@@ -422,17 +419,16 @@ class MainActivity : AppCompatActivity(), LocationListener {
         binding.btnPinSetDest.setOnClickListener {
             val pin = selectedPinLocation ?: return@setOnClickListener
             viewModel.setDestinationPoint(pin)
-            binding.tvDestPointLabel.text = String.format(Locale.getDefault(), "Dest: (%.4f, %.4f)", pin.latitude, pin.longitude)
+            binding.bottomSheetRoute.tvDestPointLabel.text = String.format(Locale.getDefault(), "Dest: (%.4f, %.4f)", pin.latitude, pin.longitude)
             mapEngine.clearSelectionPoint()
             binding.cardPinSelectionCallout.visibility = View.GONE
-            binding.cardRouteSummaryHeader.visibility = View.VISIBLE
 
             // If no manual start point set, default to live GPS user location
             if (viewModel.startPoint.value == null || isStartPointDynamicGps) {
                 isStartPointDynamicGps = true
                 val currentLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
                 viewModel.setStartPoint(currentLoc)
-                binding.tvStartPointLabel.text = if (lastGpsLocation != null) "Start: My Location (Live GPS)" else "Start: Baghdad Center"
+                binding.bottomSheetRoute.tvStartPointLabel.text = if (lastGpsLocation != null) "Start: My Location (Live GPS)" else "Start: Baghdad Center"
                 lastCalculatedStartLocation = currentLoc
             }
 
@@ -557,7 +553,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         // Dynamic GPS Start Point: update route as user drives/moves along their route!
         if (isStartPointDynamicGps && viewModel.destPoint.value != null) {
             viewModel.setStartPoint(userLatLong)
-            binding.tvStartPointLabel.text = "Start: My Location (Live GPS)"
+            binding.bottomSheetRoute.tvStartPointLabel.text = "Start: My Location (Live GPS)"
 
             val lastCalc = lastCalculatedStartLocation
             if (lastCalc == null || GeoUtils.calculateDistance(lastCalc, userLatLong) > 30.0) {
@@ -572,12 +568,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         sheet.onLocationSelected = { latLong, name ->
             if (isSelectingStart) {
                 viewModel.setStartPoint(latLong)
-                binding.tvStartPointLabel.text = "Start: $name"
+                binding.bottomSheetRoute.tvStartPointLabel.text = "Start: $name"
             } else {
                 viewModel.setDestinationPoint(latLong)
-                binding.tvDestPointLabel.text = "Dest: $name"
+                binding.bottomSheetRoute.tvDestPointLabel.text = "Dest: $name"
             }
-            binding.cardRouteSummaryHeader.visibility = View.VISIBLE
         }
         sheet.show(supportFragmentManager, LocationPickerSheet.TAG)
     }
