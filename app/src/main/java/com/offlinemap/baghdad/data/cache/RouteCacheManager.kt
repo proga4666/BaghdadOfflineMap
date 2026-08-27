@@ -52,6 +52,9 @@ class RouteCacheManager(context: Context) : SQLiteOpenHelper(context, DATABASE_N
         vehicle: String,
         route: RouteResult
     ) {
+        if (route.isFallbackCalculation || route.points.size < 5) {
+            return // Never save fallback straight-line calculations!
+        }
         try {
             val db = writableDatabase
 
@@ -83,6 +86,15 @@ class RouteCacheManager(context: Context) : SQLiteOpenHelper(context, DATABASE_N
             }
 
             db.insertWithOnConflict(TABLE_ROUTES, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun clearCorruptRoutes() {
+        try {
+            val db = writableDatabase
+            db.execSQL("DELETE FROM $TABLE_ROUTES WHERE $COL_POINTS_TEXT NOT LIKE '%;%;%;%;%'")
         } catch (e: Exception) {
             e.printStackTrace()
         }

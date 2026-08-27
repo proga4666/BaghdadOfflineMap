@@ -70,6 +70,9 @@ class RoutingEngine(private val context: Context) {
             isHopperLoaded = true
             Log.i("RoutingEngine", "GraphHopper offline routing successfully loaded from ${graphFolder.absolutePath}")
 
+            // Clean up any corrupt 2-point straight line entries
+            cacheManager.clearCorruptRoutes()
+
             // Re-train GraphHopper on all previously cached Google routes!
             val allCachedPoints = cacheManager.getAllSavedRoutePoints()
             for (pts in allCachedPoints) {
@@ -166,10 +169,10 @@ class RoutingEngine(private val context: Context) {
             }
         }
 
-        // Check local spatial cache for previously learned exact/corridor Google trips
-        val cachedRoute = cacheManager.findCorridorMatchingRoute(start, dest, vehicle)
-        if (cachedRoute != null) {
-            Log.i("RoutingEngine", "Found matching route in local Spatial Route Cache / Corridor Stitcher!")
+        // Check local spatial cache for previously learned exact Google trips
+        val cachedRoute = cacheManager.findMatchingRoute(start, dest, vehicle, maxDistanceMeters = 80.0)
+        if (cachedRoute != null && cachedRoute.points.size >= 5) {
+            Log.i("RoutingEngine", "Found exact matching route in local Spatial Route Cache!")
             return@withContext Result.success(cachedRoute)
         }
 
