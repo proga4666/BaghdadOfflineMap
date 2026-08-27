@@ -19,9 +19,9 @@ class GoogleBiasedWeighting(
         val edgeId = edgeState.edge
 
         // If this road segment was previously chosen/validated by Google Directions,
-        // give it a 75% discount in cost (making it 4x more attractive in offline Dijkstra/A* path search)
+        // give it an 85% discount in cost (making it 6.6x more attractive in offline Dijkstra/A* path search)
         return if (edgeStore.isLearnedEdge(edgeId)) {
-            baseWeight * 0.25
+            baseWeight * 0.15
         } else {
             baseWeight
         }

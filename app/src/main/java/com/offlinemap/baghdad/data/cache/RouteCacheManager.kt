@@ -307,6 +307,36 @@ class RouteCacheManager(context: Context) : SQLiteOpenHelper(context, DATABASE_N
         return null
     }
 
+    fun getAllSavedRoutePoints(): List<List<LatLong>> {
+        val result = ArrayList<List<LatLong>>()
+        val db = readableDatabase
+        val cursor = db.rawQuery("SELECT $COL_POINTS_TEXT FROM $TABLE_ROUTES ORDER BY $COL_TIMESTAMP DESC LIMIT 100", null)
+        try {
+            while (cursor.moveToNext()) {
+                val pointsStr = cursor.getString(0) ?: continue
+                val points = ArrayList<LatLong>()
+                pointsStr.split(";").forEach { pair ->
+                    val parts = pair.split(",")
+                    if (parts.size == 2) {
+                        val lat = parts[0].toDoubleOrNull()
+                        val lon = parts[1].toDoubleOrNull()
+                        if (lat != null && lon != null) {
+                            points.add(LatLong(lat, lon))
+                        }
+                    }
+                }
+                if (points.isNotEmpty()) {
+                    result.add(points)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            cursor.close()
+        }
+        return result
+    }
+
     fun getCachedRoutesCount(): Int {
         val db = readableDatabase
         val cursor = db.rawQuery("SELECT COUNT(*) FROM $TABLE_ROUTES", null)

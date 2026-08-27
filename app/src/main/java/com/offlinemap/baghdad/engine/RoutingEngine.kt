@@ -69,6 +69,13 @@ class RoutingEngine(private val context: Context) {
             hopper = instance
             isHopperLoaded = true
             Log.i("RoutingEngine", "GraphHopper offline routing successfully loaded from ${graphFolder.absolutePath}")
+
+            // Re-train GraphHopper on all previously cached Google routes!
+            val allCachedPoints = cacheManager.getAllSavedRoutePoints()
+            for (pts in allCachedPoints) {
+                learnRoadSegmentsFromGoogleRoute(pts)
+            }
+
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -78,26 +85,45 @@ class RoutingEngine(private val context: Context) {
     }
 
     /**
-     * Map-matches polyline coordinates to GraphHopper road edge IDs and registers them as preferred corridors
+     * Map-matches polyline coordinates to GraphHopper road edge IDs with dense 10m interpolation
+     * and registers every intermediate road block as a preferred Google corridor.
      */
-    fun learnRoadSegmentsFromGoogleRoute(points: List<LatLong>) {
+    fun learnRoadSegmentsFromGoogleRoute(points: List<LatLong>, vehicle: String = "car") {
         val currentHopper = hopper ?: return
         if (!isHopperLoaded) return
+        if (points.size < 2) return
 
         try {
             val locationIndex = currentHopper.locationIndex ?: return
+            val encoder = try {
+                currentHopper.encodingManager.getEncoder(vehicle)
+            } catch (e: Exception) {
+                currentHopper.encodingManager.getEncoder("car")
+            }
+            val edgeFilter = com.graphhopper.routing.util.DefaultEdgeFilter.allEdges(encoder)
             val matchedEdges = HashSet<Int>()
 
-            for (pt in points) {
-                val qr = locationIndex.findClosest(pt.latitude, pt.longitude, EdgeFilter.ALL_EDGES)
-                if (qr.isValid && qr.closestEdge != null) {
-                    matchedEdges.add(qr.closestEdge.edge)
+            for (i in 0 until points.size - 1) {
+                val p1 = points[i]
+                val p2 = points[i + 1]
+                val dist = GeoUtils.calculateDistance(p1, p2)
+                val steps = kotlin.math.max(1, (dist / 10.0).toInt())
+
+                for (s in 0..steps) {
+                    val frac = s.toDouble() / steps
+                    val lat = p1.latitude + (p2.latitude - p1.latitude) * frac
+                    val lon = p1.longitude + (p2.longitude - p1.longitude) * frac
+
+                    val qr = locationIndex.findClosest(lat, lon, edgeFilter)
+                    if (qr.isValid && qr.closestEdge != null) {
+                        matchedEdges.add(qr.closestEdge.edge)
+                    }
                 }
             }
 
             if (matchedEdges.isNotEmpty()) {
                 edgeStore.addLearnedEdges(matchedEdges)
-                Log.i("RoutingEngine", "Learned ${matchedEdges.size} road segments from Google Route. Total learned edges: ${edgeStore.getLearnedEdgesCount()}")
+                Log.i("RoutingEngine", "Learned ${matchedEdges.size} road segments from Google Route (10m continuous sampling). Total learned edges: ${edgeStore.getLearnedEdgesCount()}")
             }
         } catch (e: Exception) {
             Log.e("RoutingEngine", "Error matching Google route to GraphHopper edges", e)
