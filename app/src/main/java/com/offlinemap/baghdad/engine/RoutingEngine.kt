@@ -22,6 +22,8 @@ import com.offlinemap.baghdad.data.model.RoutingSource
 import com.offlinemap.baghdad.data.network.GoogleDirectionsService
 import com.offlinemap.baghdad.utils.GeoUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.BoundingBox
 import org.mapsforge.core.model.LatLong
@@ -45,45 +47,51 @@ class RoutingEngine(private val context: Context) {
     val cacheManager = RouteCacheManager(context)
     val edgeStore = LearnedEdgeStore(context)
 
+    private val loadMutex = Mutex()
+
     /**
      * Initialize GraphHopper with custom Google-biased edge weighting
      */
     suspend fun loadRoutingGraph(graphFolder: File): Boolean = withContext(Dispatchers.IO) {
-        try {
-            if (!graphFolder.exists() || !graphFolder.isDirectory) {
-                return@withContext false
-            }
-
-            close()
-
-            val instance = object : GraphHopper() {
-                override fun createWeighting(hintsMap: HintsMap, encoder: FlagEncoder, graph: Graph): Weighting {
-                    return GoogleBiasedWeighting(encoder, hintsMap, edgeStore)
+        if (isHopperLoaded && hopper != null) return@withContext true
+        loadMutex.withLock {
+            if (isHopperLoaded && hopper != null) return@withLock true
+            try {
+                if (!graphFolder.exists() || !graphFolder.isDirectory) {
+                    return@withLock false
                 }
+
+                close()
+
+                val instance = object : GraphHopper() {
+                    override fun createWeighting(hintsMap: HintsMap, encoder: FlagEncoder, graph: Graph): Weighting {
+                        return GoogleBiasedWeighting(encoder, hintsMap, edgeStore)
+                    }
+                }
+
+                instance.forMobile()
+                instance.setCHEnabled(false)
+                instance.setEncodingManager(com.graphhopper.routing.util.EncodingManager.create("car,bike,foot"))
+                instance.load(graphFolder.absolutePath)
+                hopper = instance
+                isHopperLoaded = true
+                Log.i("RoutingEngine", "GraphHopper offline routing successfully loaded from ${graphFolder.absolutePath}")
+
+                // Clean up any corrupt 2-point straight line entries
+                cacheManager.clearCorruptRoutes()
+
+                // Re-train GraphHopper on all previously cached Google routes!
+                val allCachedPoints = cacheManager.getAllSavedRoutePoints()
+                for (pts in allCachedPoints) {
+                    learnRoadSegmentsFromGoogleRoute(pts)
+                }
+
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                isHopperLoaded = false
+                false
             }
-
-            instance.forMobile()
-            instance.setCHEnabled(false)
-            instance.setEncodingManager(com.graphhopper.routing.util.EncodingManager.create("car,bike,foot"))
-            instance.load(graphFolder.absolutePath)
-            hopper = instance
-            isHopperLoaded = true
-            Log.i("RoutingEngine", "GraphHopper offline routing successfully loaded from ${graphFolder.absolutePath}")
-
-            // Clean up any corrupt 2-point straight line entries
-            cacheManager.clearCorruptRoutes()
-
-            // Re-train GraphHopper on all previously cached Google routes!
-            val allCachedPoints = cacheManager.getAllSavedRoutePoints()
-            for (pts in allCachedPoints) {
-                learnRoadSegmentsFromGoogleRoute(pts)
-            }
-
-            true
-        } catch (e: Exception) {
-            e.printStackTrace()
-            isHopperLoaded = false
-            false
         }
     }
 

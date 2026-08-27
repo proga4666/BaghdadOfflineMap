@@ -96,7 +96,13 @@ class MapEngine(
         mapView.isClickable = true
         mapView.mapScaleBar.isVisible = true
         mapView.setBuiltInZoomControls(true)
-        mapView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+
+        val hardwarePaint = android.graphics.Paint().apply {
+            isAntiAlias = true
+            isFilterBitmap = true
+            isDither = true
+        }
+        mapView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, hardwarePaint)
 
         applyThemeBackgroundColor(currentThemePreset)
 
@@ -110,7 +116,6 @@ class MapEngine(
             field = value.coerceIn(0f, 55f)
             mapView.cameraDistance = 8000f * context.resources.displayMetrics.density
             mapView.rotationX = field
-            mapView.repaint()
         }
 
     private enum class TwoFingerMode { NONE, ROTATING, TILTING }
@@ -209,18 +214,16 @@ class MapEngine(
                             }
                         }
 
-                        // Execute exclusively
+                        // Execute exclusively on GPU layer without CPU repaint thrashing
                         when (activeTwoFingerMode) {
                             TwoFingerMode.ROTATING -> {
                                 val angleDelta = (currentAngle - initialPointerAngle).toFloat()
                                 mapView.rotation = initialMapRotation + angleDelta
                                 updateAllPinRotations()
-                                mapView.repaint()
                             }
                             TwoFingerMode.TILTING -> {
                                 val newTilt = (initialTilt - deltaY * 0.16f).coerceIn(0f, 55f)
                                 mapTilt = newTilt
-                                mapView.repaint()
                             }
                             TwoFingerMode.NONE -> {
                                 // Waiting for gesture intent
@@ -230,6 +233,9 @@ class MapEngine(
                 }
                 MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (event.pointerCount <= 2) {
+                        if (isTwoFingerGestureActive) {
+                            mapView.repaint()
+                        }
                         isTwoFingerGestureActive = false
                         activeTwoFingerMode = TwoFingerMode.NONE
                     }
