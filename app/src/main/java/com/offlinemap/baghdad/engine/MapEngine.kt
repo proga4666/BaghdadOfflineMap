@@ -277,7 +277,7 @@ class MapEngine(
     fun animateTo(
         target: LatLong,
         targetZoom: Byte? = null,
-        durationMs: Long = 450L,
+        durationMs: Long = 520L,
         onComplete: (() -> Unit)? = null
     ) {
         cameraAnimator?.cancel()
@@ -289,25 +289,31 @@ class MapEngine(
 
         val startZoom = mapView.model.mapViewPosition.zoomLevel
         val endZoom = targetZoom ?: startZoom
-
-        if (endZoom != startZoom) {
-            mapView.model.mapViewPosition.zoomLevel = endZoom
-        }
+        var zoomApplied = (endZoom == startZoom)
 
         isCameraAnimating = true
 
         cameraAnimator = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
             duration = durationMs
-            interpolator = android.view.animation.DecelerateInterpolator(1.8f)
+            interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
             addUpdateListener { animator ->
                 val fraction = animator.animatedValue as Float
                 val curLat = startLat + (targetLat - startLat) * fraction
                 val curLon = startLon + (targetLon - startLon) * fraction
                 mapView.model.mapViewPosition.setCenter(LatLong(curLat, curLon))
+
+                // Transition zoom smoothly halfway through the flight
+                if (!zoomApplied && fraction >= 0.55f) {
+                    zoomApplied = true
+                    mapView.model.mapViewPosition.zoomLevel = endZoom
+                }
                 mapView.repaint()
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (!zoomApplied) {
+                        mapView.model.mapViewPosition.zoomLevel = endZoom
+                    }
                     mapView.model.mapViewPosition.setCenter(target)
                     mapView.repaint()
                     isCameraAnimating = false
