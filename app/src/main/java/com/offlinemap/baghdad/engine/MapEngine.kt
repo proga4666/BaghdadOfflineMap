@@ -357,6 +357,26 @@ class MapEngine(
         }
     }
 
+    private val arrowBitmapCache = mutableMapOf<Int, Bitmap>()
+    private val destPinBitmapCache = mutableMapOf<Int, Bitmap>()
+    private val startPinBitmapCache = mutableMapOf<Int, Bitmap>()
+    private var lastRenderedPinAngle = -999
+
+    private fun getCachedArrowBitmap(degrees: Float): Bitmap {
+        val rounded = ((degrees.toInt() % 360 + 360) % 360) / 4 * 4 // Quantize to 4 deg increments
+        return arrowBitmapCache.getOrPut(rounded) {
+            createRotatedArrowBitmap(rounded.toFloat())
+        }
+    }
+
+    private fun getCachedPinBitmap(drawableResId: Int, degrees: Float): Bitmap {
+        val rounded = ((degrees.toInt() % 360 + 360) % 360) / 6 * 6 // Quantize to 6 deg increments
+        val cache = if (drawableResId == R.drawable.ic_dest_pin) destPinBitmapCache else startPinBitmapCache
+        return cache.getOrPut(rounded) {
+            createMarkerBitmap(drawableResId, rounded.toFloat(), 36)
+        }
+    }
+
     private fun getPinCounterRotation(): Float {
         return if (trackingMode == TrackingMode.FOLLOW_AND_ROTATE && !isTrackingSuspended) {
             lastUserBearing
@@ -367,29 +387,44 @@ class MapEngine(
 
     private fun updateAllPinRotations() {
         val counterRot = getPinCounterRotation()
+        val quantized = ((counterRot.toInt() % 360 + 360) % 360) / 6 * 6
+        if (quantized == lastRenderedPinAngle && lastRenderedPinAngle != -999) return
+        lastRenderedPinAngle = quantized
 
         lastSelectionLocation?.let { latLong ->
-            selectionMarker?.let { mapView.layerManager.layers.remove(it) }
-            val bitmap = createMarkerBitmap(R.drawable.ic_dest_pin, counterRot, 36)
-            val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
-            selectionMarker = marker
-            mapView.layerManager.layers.add(marker)
+            val bitmap = getCachedPinBitmap(R.drawable.ic_dest_pin, counterRot)
+            if (selectionMarker == null) {
+                val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
+                selectionMarker = marker
+                mapView.layerManager.layers.add(marker)
+            } else {
+                selectionMarker?.latLong = latLong
+                selectionMarker?.bitmap = bitmap
+            }
         }
 
         lastStartLocation?.let { latLong ->
-            startMarker?.let { mapView.layerManager.layers.remove(it) }
-            val bitmap = createMarkerBitmap(R.drawable.ic_start_pin, counterRot, 36)
-            val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
-            startMarker = marker
-            mapView.layerManager.layers.add(marker)
+            val bitmap = getCachedPinBitmap(R.drawable.ic_start_pin, counterRot)
+            if (startMarker == null) {
+                val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
+                startMarker = marker
+                mapView.layerManager.layers.add(marker)
+            } else {
+                startMarker?.latLong = latLong
+                startMarker?.bitmap = bitmap
+            }
         }
 
         lastDestLocation?.let { latLong ->
-            destMarker?.let { mapView.layerManager.layers.remove(it) }
-            val bitmap = createMarkerBitmap(R.drawable.ic_dest_pin, counterRot, 36)
-            val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
-            destMarker = marker
-            mapView.layerManager.layers.add(marker)
+            val bitmap = getCachedPinBitmap(R.drawable.ic_dest_pin, counterRot)
+            if (destMarker == null) {
+                val marker = Marker(latLong, bitmap, 0, -bitmap.height / 2)
+                destMarker = marker
+                mapView.layerManager.layers.add(marker)
+            } else {
+                destMarker?.latLong = latLong
+                destMarker?.bitmap = bitmap
+            }
         }
     }
 
@@ -402,9 +437,9 @@ class MapEngine(
             resetCameraTransform(animated = true)
         } else if (mode == TrackingMode.FOLLOW && lastUserLocation != null) {
             resetCameraTransform(animated = true)
-            animateTo(lastUserLocation!!, 15.toByte())
+            centerOn(lastUserLocation!!, 16.toByte())
         } else if (mode == TrackingMode.FOLLOW_AND_ROTATE && lastUserLocation != null) {
-            animateTo(lastUserLocation!!, 16.toByte())
+            centerOn(lastUserLocation!!, 16.toByte())
             applyCameraTransform(lastUserBearing, animated = true)
         }
         updateUserLocationVisuals()
@@ -416,7 +451,7 @@ class MapEngine(
         onTrackingSuspensionChanged?.invoke(false)
 
         val loc = lastUserLocation ?: return
-        animateTo(loc, 16.toByte(), durationMs = 400L)
+        centerOn(loc, 16.toByte())
         if (trackingMode == TrackingMode.FOLLOW_AND_ROTATE) {
             applyCameraTransform(lastUserBearing, animated = true)
         } else {
@@ -470,13 +505,17 @@ class MapEngine(
             accuracyCircle = null
         }
 
-        // 2. Directional Navigation Puck
-        userLocationMarker?.let { mapView.layerManager.layers.remove(it) }
+        // 2. Directional Navigation Puck (Zero Allocation via Cache)
         val puckRotation = if (trackingMode == TrackingMode.FOLLOW_AND_ROTATE && !isTrackingSuspended) 0f else lastUserBearing
-        val arrowBitmap = createRotatedArrowBitmap(puckRotation)
-        val marker = Marker(latLong, arrowBitmap, 0, 0)
-        userLocationMarker = marker
-        mapView.layerManager.layers.add(marker)
+        val arrowBitmap = getCachedArrowBitmap(puckRotation)
+        if (userLocationMarker == null) {
+            val marker = Marker(latLong, arrowBitmap, 0, 0)
+            userLocationMarker = marker
+            mapView.layerManager.layers.add(marker)
+        } else {
+            userLocationMarker?.latLong = latLong
+            userLocationMarker?.bitmap = arrowBitmap
+        }
 
         // 3. Camera behavior (Only lock camera if user is NOT currently panning)
         if (!isTrackingSuspended) {
