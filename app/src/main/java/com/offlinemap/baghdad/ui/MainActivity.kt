@@ -560,16 +560,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val bearing = if (location.hasBearing()) location.bearing else compassManager.onAzimuthChanged?.let { mapEngine.lastUserBearing } ?: 0f
         mapEngine.setUserLocation(userLatLong, location.accuracy, bearing)
 
-        // Dynamic GPS Start Point: update route as user drives/moves along their route!
-        if (isStartPointDynamicGps && viewModel.destPoint.value != null) {
+        // Only set initial start point once if not set yet
+        if (isStartPointDynamicGps && viewModel.startPoint.value == null) {
             viewModel.setStartPoint(userLatLong)
             binding.bottomSheetRoute.tvStartPointLabel.text = "Start: My Location (Live GPS)"
-
-            val lastCalc = lastCalculatedStartLocation
-            if (lastCalc == null || GeoUtils.calculateDistance(lastCalc, userLatLong) > 30.0) {
-                lastCalculatedStartLocation = userLatLong
-                viewModel.calculateRoute()
-            }
         }
     }
 
