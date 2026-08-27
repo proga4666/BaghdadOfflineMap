@@ -273,26 +273,29 @@ class MapEngine(
 
     private var cameraAnimator: android.animation.ValueAnimator? = null
     private var rotationAnimator: android.animation.ValueAnimator? = null
+    private val zoomHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     fun animateTo(
         target: LatLong,
         targetZoom: Byte? = null,
-        durationMs: Long = 520L,
+        durationMs: Long = 420L,
         onComplete: (() -> Unit)? = null
     ) {
         cameraAnimator?.cancel()
+        zoomHandler.removeCallbacksAndMessages(null)
+
         val startCenter = mapView.model.mapViewPosition.center ?: GeoUtils.BAGHDAD_CENTER
         val startLat = startCenter.latitude
         val startLon = startCenter.longitude
         val targetLat = target.latitude
         val targetLon = target.longitude
 
-        val startZoom = mapView.model.mapViewPosition.zoomLevel
-        val endZoom = targetZoom ?: startZoom
-        var zoomApplied = (endZoom == startZoom)
+        val startZoom = mapView.model.mapViewPosition.zoomLevel.toInt()
+        val endZoom = targetZoom?.toInt() ?: startZoom
 
         isCameraAnimating = true
 
+        // Phase 1: Smoothly pan across to target coordinates first (at current zoom level)
         cameraAnimator = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
             duration = durationMs
             interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
@@ -301,23 +304,20 @@ class MapEngine(
                 val curLat = startLat + (targetLat - startLat) * fraction
                 val curLon = startLon + (targetLon - startLon) * fraction
                 mapView.model.mapViewPosition.setCenter(LatLong(curLat, curLon))
-
-                // Transition zoom smoothly halfway through the flight
-                if (!zoomApplied && fraction >= 0.55f) {
-                    zoomApplied = true
-                    mapView.model.mapViewPosition.zoomLevel = endZoom
-                }
                 mapView.repaint()
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
-                    if (!zoomApplied) {
-                        mapView.model.mapViewPosition.zoomLevel = endZoom
-                    }
                     mapView.model.mapViewPosition.setCenter(target)
                     mapView.repaint()
-                    isCameraAnimating = false
-                    onComplete?.invoke()
+
+                    // Phase 2: After arriving at target, smoothly zoom into target location (centered on user)
+                    if (startZoom != endZoom) {
+                        animateZoomSequentially(target, startZoom, endZoom, onComplete)
+                    } else {
+                        isCameraAnimating = false
+                        onComplete?.invoke()
+                    }
                 }
 
                 override fun onAnimationCancel(animation: android.animation.Animator) {
@@ -326,6 +326,40 @@ class MapEngine(
             })
             start()
         }
+    }
+
+    private fun animateZoomSequentially(
+        centerTarget: LatLong,
+        fromZoom: Int,
+        toZoom: Int,
+        onComplete: (() -> Unit)?
+    ) {
+        val zoomSteps = if (toZoom > fromZoom) (fromZoom + 1..toZoom).toList() else (fromZoom - 1 downTo toZoom).toList()
+        if (zoomSteps.isEmpty()) {
+            isCameraAnimating = false
+            onComplete?.invoke()
+            return
+        }
+
+        var currentStepIdx = 0
+        fun runNextZoomStep() {
+            if (!isCameraAnimating) return
+            if (currentStepIdx < zoomSteps.size) {
+                val nextZoom = zoomSteps[currentStepIdx]
+                mapView.model.mapViewPosition.setCenter(centerTarget)
+                mapView.model.mapViewPosition.zoomLevel = nextZoom.toByte()
+                mapView.repaint()
+                currentStepIdx++
+                zoomHandler.postDelayed({ runNextZoomStep() }, 140L)
+            } else {
+                mapView.model.mapViewPosition.setCenter(centerTarget)
+                mapView.repaint()
+                isCameraAnimating = false
+                onComplete?.invoke()
+            }
+        }
+
+        zoomHandler.postDelayed({ runNextZoomStep() }, 60L)
     }
 
     private fun applyCameraTransform(bearing: Float, animated: Boolean = false) {
