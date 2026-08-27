@@ -249,16 +249,14 @@ class MapEngine(
             val overdraw = 1.2
             mapView.model.frameBufferModel.overdrawFactor = overdraw
 
-            // Initialize correct dual-level tile cache (256 RAM tiles + 1024 Disk tiles)
+            // Standard Mapsforge tile cache with dynamic capacity
             val tileSize = mapView.model.displayModel.tileSize
             tileCache = AndroidUtil.createTileCache(
                 context,
                 "mapcache",
                 tileSize,
-                256,
-                1024,
-                overdraw,
-                true
+                1.0f,
+                overdraw
             )
 
             val newMapDataStore = MapFile(file)
@@ -279,7 +277,7 @@ class MapEngine(
                 mapView.model.mapViewPosition,
                 newMapDataStore,
                 renderTheme,
-                false,
+                true,
                 true,
                 true
             )
@@ -323,7 +321,7 @@ class MapEngine(
                 mapView.model.mapViewPosition,
                 store,
                 renderTheme,
-                false,
+                true,
                 true,
                 true
             )

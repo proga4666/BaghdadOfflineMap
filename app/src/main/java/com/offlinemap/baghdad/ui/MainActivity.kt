@@ -151,12 +151,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun setupMapView() {
         mapView = MapView(this)
-        val metrics = resources.displayMetrics
-        val diagonal = kotlin.math.hypot(metrics.widthPixels.toDouble(), metrics.heightPixels.toDouble()).toInt()
-        val size = diagonal + 200
-        val lp = android.widget.FrameLayout.LayoutParams(size, size).apply {
-            gravity = android.view.Gravity.CENTER
-        }
+        val lp = android.widget.FrameLayout.LayoutParams(
+            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+            android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+        )
         binding.mapContainer.addView(mapView, lp)
         mapEngine = MapEngine(this, mapView)
 
