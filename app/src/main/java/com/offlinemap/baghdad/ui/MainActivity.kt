@@ -29,7 +29,6 @@ import com.offlinemap.baghdad.data.repository.SearchPlace
 import com.offlinemap.baghdad.databinding.ActivityMainBinding
 import com.offlinemap.baghdad.engine.CompassSensorManager
 import com.offlinemap.baghdad.engine.MapEngine
-import com.offlinemap.baghdad.engine.MapLibreEngine
 import com.offlinemap.baghdad.engine.MapThemePreset
 import com.offlinemap.baghdad.engine.NavProgressState
 import com.offlinemap.baghdad.engine.NavigationTracker
@@ -44,6 +43,7 @@ import com.offlinemap.baghdad.utils.GeoUtils
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
+import org.mapsforge.map.android.view.MapView
 import java.util.Locale
 
 class MainActivity : AppCompatActivity(), LocationListener {
@@ -51,8 +51,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MapViewModel by viewModels()
 
-    private lateinit var mapLibreView: org.maplibre.android.maps.MapView
-    private lateinit var mapLibreEngine: MapLibreEngine
+    private lateinit var mapView: MapView
+    private lateinit var mapEngine: MapEngine
     private lateinit var instructionAdapter: InstructionAdapter
     private lateinit var searchAdapter: PlaceSearchAdapter
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
@@ -80,7 +80,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             startLocationUpdates()
         } else {
             Toast.makeText(this, "Centered on Baghdad Center", Toast.LENGTH_SHORT).show()
-            mapLibreEngine.centerOn(GeoUtils.BAGHDAD_CENTER, 14.0)
+            mapEngine.centerOn(GeoUtils.BAGHDAD_CENTER, 14.toByte())
         }
     }
 
@@ -109,11 +109,16 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
         }
 
-        setupMapView(savedInstanceState)
+        setupMapView()
         setupCompassAndLocation()
         setupSearch()
         setupUI()
         setupObservers()
+
+        val existingMap = viewModel.repository.findPrimaryMapFile()
+        if (existingMap != null && existingMap.exists()) {
+            mapEngine.loadMapFile(existingMap)
+        }
     }
 
     private fun View.showAnimated(duration: Long = 260L) {
@@ -144,28 +149,35 @@ class MainActivity : AppCompatActivity(), LocationListener {
             .start()
     }
 
-    private fun setupMapView(savedInstanceState: Bundle?) {
-        mapLibreView = org.maplibre.android.maps.MapView(this)
-        val lp = android.widget.FrameLayout.LayoutParams(
-            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-            android.widget.FrameLayout.LayoutParams.MATCH_PARENT
-        )
-        binding.mapContainer.addView(mapLibreView, lp)
-        mapLibreEngine = MapLibreEngine(this, mapLibreView)
-
-        mapLibreEngine.initialize(savedInstanceState) {
-            startLocationUpdates()
+    private fun setupMapView() {
+        mapView = MapView(this)
+        val metrics = resources.displayMetrics
+        val diagonal = kotlin.math.hypot(metrics.widthPixels.toDouble(), metrics.heightPixels.toDouble()).toInt()
+        val size = diagonal + 150
+        val lp = android.widget.FrameLayout.LayoutParams(size, size).apply {
+            gravity = android.view.Gravity.CENTER
         }
+        binding.mapContainer.addView(mapView, lp)
+        mapEngine = MapEngine(this, mapView)
+
+        val savedThemeName = getSharedPreferences("baghdad_map_prefs", Context.MODE_PRIVATE)
+            .getString("map_theme_preset", MapThemePreset.WAZE_DARK.name)
+        val preset = try {
+            MapThemePreset.valueOf(savedThemeName ?: "")
+        } catch (e: Exception) {
+            MapThemePreset.WAZE_DARK
+        }
+        mapEngine.setMapTheme(preset)
 
         // 1. Single Tap on Map: Drop temporary marker & show Options Callout
-        mapLibreEngine.onMapTapListener = { latLong ->
+        mapEngine.onMapTapListener = { latLong ->
             if (binding.cardSearchResults.visibility == View.VISIBLE) {
                 hideSearchDropdown()
             } else {
                 selectedPinLocation = latLong
-                mapLibreEngine.setSelectionPoint(latLong)
+                mapEngine.setSelectionPoint(latLong)
 
-                val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapLibreEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
+                val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
                 val distance = GeoUtils.calculateDistance(userLoc, latLong)
 
                 binding.tvPinLocationTitle.text = "Selected Location (موقع محدد)"
@@ -181,11 +193,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
 
         // 2. Long Click on Map
-        mapLibreEngine.onMapLongClickListener = { latLong ->
+        mapEngine.onMapLongClickListener = { latLong ->
             selectedPinLocation = latLong
-            mapLibreEngine.setSelectionPoint(latLong)
+            mapEngine.setSelectionPoint(latLong)
 
-            val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapLibreEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
+            val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
             val distance = GeoUtils.calculateDistance(userLoc, latLong)
 
             binding.tvPinLocationTitle.text = "Selected Location (موقع محدد)"
@@ -200,7 +212,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
 
         // 3. Handle Camera Pan Interruption: Show/hide floating Re-center button
-        mapLibreEngine.onTrackingSuspensionChanged = { isSuspended ->
+        mapEngine.onTrackingSuspensionChanged = { isSuspended ->
             if (isSuspended) {
                 binding.btnRecenterFloating.showAnimated()
             } else {
@@ -212,10 +224,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun setupCompassAndLocation() {
         compassManager = CompassSensorManager(this)
         compassManager.onAzimuthChanged = { azimuth ->
-            lastGpsLocation?.let { loc ->
-                val userLatLong = LatLong(loc.latitude, loc.longitude)
-                mapLibreEngine.setUserLocation(userLatLong, loc.accuracy, azimuth)
-            }
+            mapEngine.setUserBearing(azimuth)
         }
     }
 
@@ -231,7 +240,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         binding.rvSearchResults.adapter = searchAdapter
 
         fun showSearchHistoryOrSuggestions(query: String = "") {
-            val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapLibreEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
+            val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
             if (query.trim().isEmpty()) {
                 val recents = searchHistoryRepo.getRecentSearches(userLoc)
                 if (recents.isNotEmpty()) {
@@ -286,7 +295,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                     showSearchHistoryOrSuggestions(query)
                     searchJob = lifecycleScope.launch {
                         kotlinx.coroutines.delay(250) // Debounce typing
-                        val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapLibreEngine.lastUserLocation
+                        val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation
                         val results = searchRepo.searchPlaces(
                             query = query,
                             userLocation = userLoc,
@@ -310,7 +319,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 val query = binding.etSearchPlaces.text.toString()
                 searchJob?.cancel()
                 lifecycleScope.launch {
-                    val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapLibreEngine.lastUserLocation
+                    val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation
                     val results = searchRepo.searchPlaces(
                         query = query,
                         userLocation = userLoc,
@@ -351,10 +360,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
         
         // 1. Drop selection pin on map
         selectedPinLocation = place.coordinates
-        mapLibreEngine.setSelectionPoint(place.coordinates)
+        mapEngine.setSelectionPoint(place.coordinates)
 
         // 2. Populate Place Info Callout Card
-        val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapLibreEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
+        val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
         val distance = GeoUtils.calculateDistance(userLoc, place.coordinates)
         val nameText = if (place.nameAr.isNotBlank() && place.nameAr != place.nameEn) {
             "${place.nameEn} (${place.nameAr})"
@@ -368,7 +377,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         binding.cardPinSelectionCallout.showAnimated()
 
         // 4. Center camera directly on searched place
-        mapLibreEngine.animateTo(place.coordinates, 16.0, durationMs = 450L)
+        mapEngine.animateTo(place.coordinates, 16.toByte(), durationMs = 450L)
     }
 
     private fun hideSearchDropdown() {
@@ -377,7 +386,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         binding.cardSearchResults.clearAnimation()
         binding.layoutSearchHistoryHeader.visibility = View.GONE
         binding.containerFloatingButtons.showAnimated()
-        if (mapLibreEngine.isTrackingSuspended) {
+        if (mapEngine.isTrackingSuspended) {
             binding.btnRecenterFloating.showAnimated()
         }
         binding.etSearchPlaces.clearFocus()
@@ -417,8 +426,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         // Clear button (Integrated in Bottom Sheet)
         binding.bottomSheetRoute.btnClearRoute.setOnClickListener {
             viewModel.clearRoute()
-            mapLibreEngine.clearAllMarkersAndRoute()
-            mapLibreEngine.clearSelectionPoint()
+            mapEngine.clearAllMarkersAndRoute()
+            mapEngine.clearSelectionPoint()
             binding.cardPinSelectionCallout.hideAnimated()
             binding.etSearchPlaces.text.clear()
             bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
@@ -432,7 +441,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             isStartPointDynamicGps = false
             val startTitle = binding.tvPinLocationTitle.text.toString()
             binding.bottomSheetRoute.tvStartPointLabel.text = "Start: $startTitle"
-            mapLibreEngine.clearSelectionPoint()
+            mapEngine.clearSelectionPoint()
             binding.cardPinSelectionCallout.hideAnimated()
 
             if (viewModel.destPoint.value != null) {
@@ -446,12 +455,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
             viewModel.setDestinationPoint(pin)
             val destTitle = binding.tvPinLocationTitle.text.toString()
             binding.bottomSheetRoute.tvDestPointLabel.text = "Dest: $destTitle"
-            mapLibreEngine.clearSelectionPoint()
+            mapEngine.clearSelectionPoint()
             binding.cardPinSelectionCallout.hideAnimated()
 
             if (viewModel.startPoint.value == null || isStartPointDynamicGps) {
                 isStartPointDynamicGps = true
-                val currentLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapLibreEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
+                val currentLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
                 viewModel.setStartPoint(currentLoc)
                 binding.bottomSheetRoute.tvStartPointLabel.text = if (lastGpsLocation != null) "Start: My Location (Live GPS)" else "Start: Baghdad Center"
                 lastCalculatedStartLocation = currentLoc
@@ -463,35 +472,35 @@ class MainActivity : AppCompatActivity(), LocationListener {
         // Pin Selection Callout Button: Close
         binding.btnPinClose.setOnClickListener {
             selectedPinLocation = null
-            mapLibreEngine.clearSelectionPoint()
+            mapEngine.clearSelectionPoint()
             binding.cardPinSelectionCallout.hideAnimated()
         }
 
         // Floating Re-center Button
         binding.btnRecenterFloating.setOnClickListener {
-            mapLibreEngine.resumeTracking(animated = true)
+            mapEngine.resumeTracking(animated = true)
             binding.btnRecenterFloating.hideAnimated()
         }
 
         // Settings Dialog (⚙️ in search bar)
         binding.btnOpenSettings.setOnClickListener {
             val dialog = UnifiedSettingsDialog()
-            dialog.currentTheme = mapLibreEngine.currentThemePreset
+            dialog.currentTheme = mapEngine.currentThemePreset
             dialog.onThemeChanged = { newTheme ->
-                mapLibreEngine.setMapTheme(newTheme)
+                mapEngine.setMapTheme(newTheme)
             }
             dialog.show(supportFragmentManager, UnifiedSettingsDialog.TAG)
         }
 
         // Compass / Tracking & Rotation FAB (🧭)
         binding.fabCompassTracking.setOnClickListener {
-            val current = mapLibreEngine.trackingMode
+            val current = mapEngine.trackingMode
             val next = when (current) {
                 MapEngine.TrackingMode.FREE -> MapEngine.TrackingMode.FOLLOW
                 MapEngine.TrackingMode.FOLLOW -> MapEngine.TrackingMode.FOLLOW_AND_ROTATE
                 MapEngine.TrackingMode.FOLLOW_AND_ROTATE -> MapEngine.TrackingMode.FREE
             }
-            mapLibreEngine.setTrackingMode(next, animated = true)
+            mapEngine.setTrackingMode(next, animated = true)
 
             when (next) {
                 MapEngine.TrackingMode.FREE -> {
@@ -512,16 +521,16 @@ class MainActivity : AppCompatActivity(), LocationListener {
         // Map Themes FAB (🥞)
         binding.fabMapStyle.setOnClickListener {
             val dialog = UnifiedSettingsDialog()
-            dialog.currentTheme = mapLibreEngine.currentThemePreset
+            dialog.currentTheme = mapEngine.currentThemePreset
             dialog.onThemeChanged = { newTheme ->
-                mapLibreEngine.setMapTheme(newTheme)
+                mapEngine.setMapTheme(newTheme)
             }
             dialog.show(supportFragmentManager, UnifiedSettingsDialog.TAG)
         }
 
         // Center Location FAB (🎯)
         binding.fabCenterBaghdad.setOnClickListener {
-            mapLibreEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW, animated = true)
+            mapEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW, animated = true)
             startLocationUpdates()
         }
 
@@ -566,7 +575,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         updateMuteButtonIcon()
         binding.cardNavHud.showAnimated()
 
-        mapLibreEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW_AND_ROTATE, animated = true)
+        mapEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW_AND_ROTATE, animated = true)
         binding.fabCompassTracking.setImageResource(R.drawable.ic_navigation_arrow)
 
         navigationTracker.startNavigation(route)
@@ -580,7 +589,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         binding.containerFloatingButtons.showAnimated()
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
 
-        mapLibreEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW, animated = true)
+        mapEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW, animated = true)
         binding.fabCompassTracking.setImageResource(R.drawable.ic_my_location)
     }
 
@@ -643,18 +652,18 @@ class MainActivity : AppCompatActivity(), LocationListener {
             if (best != null) {
                 onLocationChanged(best)
             } else {
-                mapLibreEngine.animateTo(GeoUtils.BAGHDAD_CENTER, 14.0, durationMs = 450L)
+                mapEngine.animateTo(GeoUtils.BAGHDAD_CENTER, 14.toByte(), durationMs = 450L)
             }
         } catch (e: Exception) {
-            mapLibreEngine.animateTo(GeoUtils.BAGHDAD_CENTER, 14.0, durationMs = 450L)
+            mapEngine.animateTo(GeoUtils.BAGHDAD_CENTER, 14.toByte(), durationMs = 450L)
         }
     }
 
     override fun onLocationChanged(location: Location) {
         lastGpsLocation = location
         val userLatLong = LatLong(location.latitude, location.longitude)
-        val bearing = if (location.hasBearing()) location.bearing else compassManager.onAzimuthChanged?.let { mapLibreEngine.lastUserBearing } ?: 0f
-        mapLibreEngine.setUserLocation(userLatLong, location.accuracy, bearing)
+        val bearing = if (location.hasBearing()) location.bearing else compassManager.onAzimuthChanged?.let { mapEngine.lastUserBearing } ?: 0f
+        mapEngine.setUserLocation(userLatLong, location.accuracy, bearing)
 
         // Pass location to active turn-by-turn navigation engine
         if (navigationTracker.isTracking) {
@@ -685,13 +694,21 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun setupObservers() {
         lifecycleScope.launch {
             viewModel.startPoint.collectLatest { point ->
-                mapLibreEngine.setStartPoint(point)
+                mapEngine.setStartPoint(point)
             }
         }
 
         lifecycleScope.launch {
             viewModel.destPoint.collectLatest { point ->
-                mapLibreEngine.setDestinationPoint(point)
+                mapEngine.setDestinationPoint(point)
+            }
+        }
+
+        lifecycleScope.launch {
+            viewModel.installedMapFile.collectLatest { mapFile ->
+                if (mapFile != null && mapFile.exists()) {
+                    mapEngine.loadMapFile(mapFile)
+                }
             }
         }
 
@@ -719,7 +736,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun displayRouteResult(route: RouteResult) {
         activeRouteResult = route
-        mapLibreEngine.displayRoute(route.points, route.boundingBox)
+        mapEngine.displayRoute(route.points, route.boundingBox)
 
         binding.bottomSheetRoute.tvRouteDistance.text = GeoUtils.formatDistance(route.distanceMeters)
         binding.bottomSheetRoute.tvRouteDuration.text = GeoUtils.formatDuration(route.timeMillis)
@@ -743,14 +760,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
     }
 
-    override fun onStart() {
-        super.onStart()
-        mapLibreEngine.onStart()
-    }
-
     override fun onResume() {
         super.onResume()
-        mapLibreEngine.onResume()
+        mapEngine.onResume()
         compassManager.start()
         startLocationUpdates()
         viewModel.checkLocalFiles()
@@ -758,7 +770,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     override fun onPause() {
         super.onPause()
-        mapLibreEngine.onPause()
+        mapEngine.onPause()
         compassManager.stop()
         try {
             val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -766,26 +778,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         } catch (_: Exception) {}
     }
 
-    override fun onStop() {
-        super.onStop()
-        mapLibreEngine.onStop()
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        mapLibreEngine.onSaveInstanceState(outState)
-    }
-
-    override fun onLowMemory() {
-        super.onLowMemory()
-        mapLibreEngine.onLowMemory()
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         voiceGuidanceManager.shutdown()
         navigationTracker.stopNavigation()
-        mapLibreEngine.onDestroy()
+        mapEngine.onDestroy()
     }
 }
 

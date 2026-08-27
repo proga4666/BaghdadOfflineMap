@@ -98,10 +98,6 @@ class MapEngine(
         mapView.setBuiltInZoomControls(true)
         mapView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
 
-        // Scale by 1.45x so rotated and tilted 3D map fully covers all 4 screen corners with zero black borders
-        mapView.scaleX = 1.45f
-        mapView.scaleY = 1.45f
-
         applyThemeBackgroundColor(currentThemePreset)
 
         // Center on Baghdad & Al-Mansour with street-level zoom
