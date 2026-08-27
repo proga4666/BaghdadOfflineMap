@@ -86,6 +86,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -573,7 +574,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     private fun stopActiveNavigation() {
-        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         navigationTracker.stopNavigation()
         binding.cardNavHud.hideAnimated()
         binding.cardSearchBar.showAnimated()
