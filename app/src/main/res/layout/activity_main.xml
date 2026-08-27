@@ -79,7 +79,7 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 2. Instant Search Suggestions Card Dropdown -->
+        <!-- 2. Instant Search Suggestions & Recent History Dropdown -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardSearchResults"
             android:layout_width="match_parent"
@@ -88,16 +88,55 @@
             android:visibility="gone"
             app:cardBackgroundColor="@color/surface"
             app:cardCornerRadius="16dp"
-            app:cardElevation="8dp"
+            app:cardElevation="16dp"
             app:strokeWidth="0dp">
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvSearchResults"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:clipToPadding="false"
-                android:maxHeight="260dp"
-                android:paddingVertical="4dp" />
+                android:orientation="vertical">
+
+                <!-- Recent Searches Header -->
+                <LinearLayout
+                    android:id="@+id/layoutSearchHistoryHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="16dp"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="4dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvSearchDropdownTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="🕒 Recent Searches (عمليات البحث الأخيرة)"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/btnClearSearchHistory"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:padding="4dp"
+                        android:text="Clear History"
+                        android:textColor="@color/primary"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvSearchResults"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clipToPadding="false"
+                    android:maxHeight="320dp"
+                    android:paddingVertical="4dp" />
+            </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <!-- 3. Active Route Points Preview Card (Start & Destination) -->
@@ -254,6 +293,7 @@
 
     <!-- Floating Navigation Control Buttons (Right Side) -->
     <LinearLayout
+        android:id="@+id/containerFloatingButtons"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end|bottom"

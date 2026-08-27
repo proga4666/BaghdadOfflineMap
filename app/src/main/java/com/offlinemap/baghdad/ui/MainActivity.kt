@@ -22,6 +22,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.offlinemap.baghdad.R
 import com.offlinemap.baghdad.data.model.RouteResult
 import com.offlinemap.baghdad.data.repository.PlaceSearchRepository
+import com.offlinemap.baghdad.data.repository.SearchHistoryRepository
 import com.offlinemap.baghdad.data.repository.SearchPlace
 import com.offlinemap.baghdad.databinding.ActivityMainBinding
 import com.offlinemap.baghdad.engine.CompassSensorManager
@@ -52,6 +53,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
 
     private val searchRepo = PlaceSearchRepository()
+    private lateinit var searchHistoryRepo: SearchHistoryRepository
     private lateinit var compassManager: CompassSensorManager
 
     private var lastGpsLocation: Location? = null
@@ -77,6 +79,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        searchHistoryRepo = SearchHistoryRepository(this)
 
         setupMapView()
         setupCompassAndLocation()
@@ -183,13 +187,57 @@ class MainActivity : AppCompatActivity(), LocationListener {
         binding.rvSearchResults.layoutManager = LinearLayoutManager(this)
         binding.rvSearchResults.adapter = searchAdapter
 
+        fun showSearchHistoryOrSuggestions(query: String = "") {
+            val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
+            if (query.trim().isEmpty()) {
+                val recents = searchHistoryRepo.getRecentSearches(userLoc)
+                if (recents.isNotEmpty()) {
+                    binding.layoutSearchHistoryHeader.visibility = View.VISIBLE
+                    binding.tvSearchDropdownTitle.text = "🕒 Recent Searches (عمليات البحث الأخيرة)"
+                    binding.btnClearSearchHistory.visibility = View.VISIBLE
+                    searchAdapter.updatePlaces(recents)
+                } else {
+                    binding.layoutSearchHistoryHeader.visibility = View.VISIBLE
+                    binding.tvSearchDropdownTitle.text = "⭐ Top Suggested Baghdad Destinations"
+                    binding.btnClearSearchHistory.visibility = View.GONE
+                    lifecycleScope.launch {
+                        val defaultList = searchRepo.searchPlaces("", userLoc)
+                        searchAdapter.updatePlaces(defaultList)
+                    }
+                }
+                binding.cardSearchResults.visibility = View.VISIBLE
+                binding.containerFloatingButtons.visibility = View.GONE
+                binding.btnRecenterFloating.visibility = View.GONE
+                binding.cardPinSelectionCallout.visibility = View.GONE
+                binding.btnClearSearch.visibility = View.VISIBLE
+            } else {
+                binding.layoutSearchHistoryHeader.visibility = View.GONE
+                binding.btnClearSearch.visibility = View.VISIBLE
+                binding.containerFloatingButtons.visibility = View.GONE
+                binding.btnRecenterFloating.visibility = View.GONE
+                binding.cardPinSelectionCallout.visibility = View.GONE
+            }
+        }
+
+        binding.etSearchPlaces.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                showSearchHistoryOrSuggestions(binding.etSearchPlaces.text.toString())
+            }
+        }
+
+        binding.btnClearSearchHistory.setOnClickListener {
+            searchHistoryRepo.clearHistory()
+            showSearchHistoryOrSuggestions("")
+            Toast.makeText(this, "Search history cleared", Toast.LENGTH_SHORT).show()
+        }
+
         binding.etSearchPlaces.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 val query = s?.toString() ?: ""
                 searchJob?.cancel()
                 if (query.isNotEmpty()) {
-                    binding.btnClearSearch.visibility = View.VISIBLE
+                    showSearchHistoryOrSuggestions(query)
                     searchJob = lifecycleScope.launch {
                         kotlinx.coroutines.delay(250) // Debounce typing
                         val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation
@@ -202,9 +250,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
                         searchAdapter.updatePlaces(results)
                         binding.cardSearchResults.visibility = if (results.isNotEmpty()) View.VISIBLE else View.GONE
                     }
+                } else if (binding.etSearchPlaces.hasFocus()) {
+                    showSearchHistoryOrSuggestions("")
                 } else {
-                    binding.btnClearSearch.visibility = View.GONE
-                    binding.cardSearchResults.visibility = View.GONE
+                    hideSearchDropdown()
                 }
             }
             override fun afterTextChanged(s: Editable?) {}
@@ -233,12 +282,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
 
         binding.btnClearSearch.setOnClickListener {
-            binding.etSearchPlaces.text.clear()
-            hideSearchDropdown()
+            if (binding.etSearchPlaces.text.isNotEmpty()) {
+                binding.etSearchPlaces.text.clear()
+                showSearchHistoryOrSuggestions("")
+            } else {
+                hideSearchDropdown()
+            }
         }
     }
 
     private fun onPlaceSelected(place: SearchPlace) {
+        searchHistoryRepo.addRecentSearch(place)
         hideSearchDropdown()
         binding.etSearchPlaces.setText(place.nameEn)
         mapEngine.clearSelectionPoint()
@@ -264,7 +318,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun hideSearchDropdown() {
         binding.cardSearchResults.visibility = View.GONE
+        binding.containerFloatingButtons.visibility = View.VISIBLE
+        if (mapEngine.isTrackingSuspended) {
+            binding.btnRecenterFloating.visibility = View.VISIBLE
+        }
         binding.etSearchPlaces.clearFocus()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+        imm?.hideSoftInputFromWindow(binding.etSearchPlaces.windowToken, 0)
     }
 
     private fun setupUI() {
