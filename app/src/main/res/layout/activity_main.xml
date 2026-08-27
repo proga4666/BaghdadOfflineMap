@@ -291,14 +291,13 @@
 
     </LinearLayout>
 
-    <!-- Floating Navigation Control Buttons (Right Side) -->
+    <!-- Floating Navigation Control Buttons (Right Side - Vertically Centered) -->
     <LinearLayout
         android:id="@+id/containerFloatingButtons"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="end|bottom"
+        android:layout_gravity="end|center_vertical"
         android:layout_marginEnd="16dp"
-        android:layout_marginBottom="160dp"
         android:gravity="center_horizontal"
         android:orientation="vertical">
 

@@ -318,6 +318,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun hideSearchDropdown() {
         binding.cardSearchResults.visibility = View.GONE
+        binding.layoutSearchHistoryHeader.visibility = View.GONE
         binding.containerFloatingButtons.visibility = View.VISIBLE
         if (mapEngine.isTrackingSuspended) {
             binding.btnRecenterFloating.visibility = View.VISIBLE
@@ -325,6 +326,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         binding.etSearchPlaces.clearFocus()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
         imm?.hideSoftInputFromWindow(binding.etSearchPlaces.windowToken, 0)
+        imm?.hideSoftInputFromWindow(binding.root.windowToken, 0)
     }
 
     private fun setupUI() {
