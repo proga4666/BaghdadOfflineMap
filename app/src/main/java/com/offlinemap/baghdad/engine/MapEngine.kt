@@ -25,6 +25,10 @@ import org.mapsforge.map.layer.overlay.Polyline
 import org.mapsforge.map.layer.renderer.TileRendererLayer
 import org.mapsforge.map.rendertheme.InternalRenderTheme
 import org.mapsforge.map.reader.MapFile
+import org.mapsforge.map.layer.queue.Job
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 
 import org.mapsforge.map.layer.download.TileDownloadLayer
@@ -756,6 +760,40 @@ class MapEngine(
         }
 
         mapView.repaint()
+        preloadRouteTiles(points)
+    }
+
+    private fun preloadRouteTiles(points: List<LatLong>) {
+        if (points.isEmpty() || !isOfflineModeLoaded) return
+
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            try {
+                val sampledPoints = ArrayList<LatLong>()
+                var lastAdded = points.first()
+                sampledPoints.add(lastAdded)
+
+                for (pt in points) {
+                    if (GeoUtils.calculateDistance(lastAdded, pt) >= 300.0) {
+                        sampledPoints.add(pt)
+                        lastAdded = pt
+                    }
+                }
+                if (sampledPoints.last() != points.last()) {
+                    sampledPoints.add(points.last())
+                }
+
+                // Pre-warm tiles into cache for navigation driving zoom levels
+                val zoomLevels = listOf(14.toByte(), 15.toByte(), 16.toByte())
+                for (zoom in zoomLevels) {
+                    for (pt in sampledPoints) {
+                        val tileX = org.mapsforge.core.util.MercatorProjection.longitudeToTileX(pt.longitude, zoom)
+                        val tileY = org.mapsforge.core.util.MercatorProjection.latitudeToTileY(pt.latitude, zoom)
+                        val tile = org.mapsforge.core.model.Tile(tileX, tileY, zoom, 256)
+                        tileCache?.containsKey(Job(tile, false))
+                    }
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     fun clearRoute() {
