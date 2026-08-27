@@ -79,9 +79,9 @@ class MapLibreEngine(
 
     fun getStyleUriForPreset(preset: MapThemePreset): String {
         return when (preset) {
-            MapThemePreset.WAZE_DARK, MapThemePreset.MIDNIGHT_DARK -> "asset://styles/style_waze_dark.json"
-            MapThemePreset.WAZE_LIGHT, MapThemePreset.MODERN_LIGHT -> "asset://styles/style_google_light.json"
-            MapThemePreset.OSM_CLASSIC -> "asset://styles/style_osm.json"
+            MapThemePreset.WAZE_DARK, MapThemePreset.MIDNIGHT_DARK -> "https://tiles.openfreemap.org/styles/dark"
+            MapThemePreset.WAZE_LIGHT, MapThemePreset.MODERN_LIGHT -> "https://tiles.openfreemap.org/styles/bright"
+            MapThemePreset.OSM_CLASSIC -> "https://tiles.openfreemap.org/styles/liberty"
         }
     }
 
