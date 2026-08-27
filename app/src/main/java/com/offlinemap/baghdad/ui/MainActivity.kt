@@ -329,24 +329,27 @@ class MainActivity : AppCompatActivity(), LocationListener {
         searchHistoryRepo.addRecentSearch(place)
         hideSearchDropdown()
         binding.etSearchPlaces.setText(place.nameEn)
-        mapEngine.clearSelectionPoint()
-        binding.cardPinSelectionCallout.hideAnimated()
+        
+        // 1. Drop selection pin on map
+        selectedPinLocation = place.coordinates
+        mapEngine.setSelectionPoint(place.coordinates)
 
-        // Set destination
-        viewModel.setDestinationPoint(place.coordinates)
-        binding.bottomSheetRoute.tvDestPointLabel.text = "${place.nameEn} (${place.nameAr})"
-
-        // If start point is not set or is dynamic, use current GPS location
-        if (viewModel.startPoint.value == null || isStartPointDynamicGps) {
-            isStartPointDynamicGps = true
-            val userLatLong = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
-            viewModel.setStartPoint(userLatLong)
-            binding.bottomSheetRoute.tvStartPointLabel.text = if (lastGpsLocation != null) "Start: My Location (Live GPS)" else "Start: Baghdad Center"
-            lastCalculatedStartLocation = userLatLong
+        // 2. Populate Place Info Callout Card
+        val userLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation ?: GeoUtils.BAGHDAD_CENTER
+        val distance = GeoUtils.calculateDistance(userLoc, place.coordinates)
+        val nameText = if (place.nameAr.isNotBlank() && place.nameAr != place.nameEn) {
+            "${place.nameEn} (${place.nameAr})"
+        } else {
+            place.nameEn
         }
+        binding.tvPinLocationTitle.text = nameText
+        binding.tvPinLocationSubtitle.text = "${place.district.ifBlank { "Baghdad" }} • ${GeoUtils.formatDistance(distance)} away • ${place.sourceProvider}"
+        
+        // 3. Show Place Info Callout Card
+        binding.cardPinSelectionCallout.showAnimated()
 
-        mapEngine.animateTo(place.coordinates, 15.toByte(), durationMs = 500L)
-        viewModel.calculateRoute()
+        // 4. Center camera directly on searched place (Do not start route yet!)
+        mapEngine.centerOn(place.coordinates, 16.toByte())
     }
 
     private fun hideSearchDropdown() {
@@ -395,7 +398,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             viewModel.clearRoute()
             mapEngine.clearAllMarkersAndRoute()
             mapEngine.clearSelectionPoint()
-            binding.cardPinSelectionCallout.visibility = View.GONE
+            binding.cardPinSelectionCallout.hideAnimated()
             binding.etSearchPlaces.text.clear()
             bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
             lastCalculatedStartLocation = null
@@ -406,22 +409,24 @@ class MainActivity : AppCompatActivity(), LocationListener {
             val pin = selectedPinLocation ?: return@setOnClickListener
             viewModel.setStartPoint(pin)
             isStartPointDynamicGps = false // User manually selected fixed start point!
-            binding.bottomSheetRoute.tvStartPointLabel.text = String.format(Locale.getDefault(), "Start: (%.4f, %.4f)", pin.latitude, pin.longitude)
+            val startTitle = binding.tvPinLocationTitle.text.toString()
+            binding.bottomSheetRoute.tvStartPointLabel.text = "Start: $startTitle"
             mapEngine.clearSelectionPoint()
-            binding.cardPinSelectionCallout.visibility = View.GONE
+            binding.cardPinSelectionCallout.hideAnimated()
 
             if (viewModel.destPoint.value != null) {
                 viewModel.calculateRoute()
             }
         }
 
-        // Pin Selection Callout Button: Set as Destination
+        // Pin Selection Callout Button: Directions (Set as Destination & Calculate Route)
         binding.btnPinSetDest.setOnClickListener {
             val pin = selectedPinLocation ?: return@setOnClickListener
             viewModel.setDestinationPoint(pin)
-            binding.bottomSheetRoute.tvDestPointLabel.text = String.format(Locale.getDefault(), "Dest: (%.4f, %.4f)", pin.latitude, pin.longitude)
+            val destTitle = binding.tvPinLocationTitle.text.toString()
+            binding.bottomSheetRoute.tvDestPointLabel.text = "Dest: $destTitle"
             mapEngine.clearSelectionPoint()
-            binding.cardPinSelectionCallout.visibility = View.GONE
+            binding.cardPinSelectionCallout.hideAnimated()
 
             // If no manual start point set, default to live GPS user location
             if (viewModel.startPoint.value == null || isStartPointDynamicGps) {
@@ -439,7 +444,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         binding.btnPinClose.setOnClickListener {
             selectedPinLocation = null
             mapEngine.clearSelectionPoint()
-            binding.cardPinSelectionCallout.visibility = View.GONE
+            binding.cardPinSelectionCallout.hideAnimated()
         }
 
         // Floating Re-center Button
@@ -497,6 +502,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
         // Center Location FAB (🎯)
         binding.fabCenterBaghdad.setOnClickListener {
+            mapEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW)
+            val currentLoc = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) } ?: mapEngine.lastUserLocation
+            if (currentLoc != null) {
+                mapEngine.centerOn(currentLoc, 16.toByte())
+            }
             startLocationUpdates()
         }
 
@@ -535,12 +545,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
             if (best != null) {
                 onLocationChanged(best)
-                mapEngine.animateTo(LatLong(best.latitude, best.longitude), 15.toByte(), durationMs = 500L)
+                mapEngine.centerOn(LatLong(best.latitude, best.longitude), 16.toByte())
             } else {
-                mapEngine.animateTo(GeoUtils.BAGHDAD_CENTER, 14.toByte(), durationMs = 500L)
+                mapEngine.centerOn(GeoUtils.BAGHDAD_CENTER, 14.toByte())
             }
         } catch (e: Exception) {
-            mapEngine.animateTo(GeoUtils.BAGHDAD_CENTER, 14.toByte(), durationMs = 500L)
+            mapEngine.centerOn(GeoUtils.BAGHDAD_CENTER, 14.toByte())
         }
     }
 

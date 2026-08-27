@@ -305,7 +305,7 @@
                     android:layout_weight="1"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
-                    android:text="Set as Start"
+                    android:text="Start Point (انطلاق)"
                     android:textColor="@color/marker_start"
                     android:textSize="12sp"
                     app:icon="@drawable/ic_start_pin"
@@ -322,10 +322,10 @@
                     android:backgroundTint="@color/primary"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
-                    android:text="Set Destination"
+                    android:text="Directions (الاتجاهات)"
                     android:textColor="@color/white"
                     android:textSize="12sp"
-                    app:icon="@drawable/ic_dest_pin"
+                    app:icon="@drawable/ic_directions"
                     app:iconTint="@color/white" />
             </LinearLayout>
 
