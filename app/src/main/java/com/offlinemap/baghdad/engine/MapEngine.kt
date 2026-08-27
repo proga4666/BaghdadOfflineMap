@@ -113,9 +113,13 @@ class MapEngine(
             mapView.repaint()
         }
 
+    private enum class TwoFingerMode { NONE, ROTATING, TILTING }
+    private var activeTwoFingerMode = TwoFingerMode.NONE
     private var initialPointerAngle = 0.0
     private var initialMapRotation = 0f
     private var initialMidY = 0f
+    private var initialY0 = 0f
+    private var initialY1 = 0f
     private var initialTilt = 0f
     private var isTwoFingerGestureActive = false
 
@@ -165,11 +169,14 @@ class MapEngine(
                 MotionEvent.ACTION_POINTER_DOWN -> {
                     if (event.pointerCount == 2) {
                         isTwoFingerGestureActive = true
+                        activeTwoFingerMode = TwoFingerMode.NONE
                         val dx = (event.getX(1) - event.getX(0)).toDouble()
                         val dy = (event.getY(1) - event.getY(0)).toDouble()
                         initialPointerAngle = Math.toDegrees(kotlin.math.atan2(dy, dx))
                         initialMapRotation = mapView.rotation
                         initialMidY = (event.getY(0) + event.getY(1)) / 2f
+                        initialY0 = event.getY(0)
+                        initialY1 = event.getY(1)
                         initialTilt = mapTilt
 
                         if (trackingMode != TrackingMode.FREE && !isTrackingSuspended) {
@@ -183,21 +190,48 @@ class MapEngine(
                         val dx = (event.getX(1) - event.getX(0)).toDouble()
                         val dy = (event.getY(1) - event.getY(0)).toDouble()
                         val currentAngle = Math.toDegrees(kotlin.math.atan2(dy, dx))
-                        val angleDelta = (currentAngle - initialPointerAngle).toFloat()
-                        mapView.rotation = initialMapRotation + angleDelta
-                        updateAllPinRotations()
+                        val angleDiff = Math.abs(currentAngle - initialPointerAngle)
 
                         val currentMidY = (event.getY(0) + event.getY(1)) / 2f
                         val deltaY = currentMidY - initialMidY
-                        val newTilt = (initialTilt - deltaY * 0.16f).coerceIn(0f, 55f)
-                        mapTilt = newTilt
+                        val verticalDiff = Math.abs(deltaY)
 
-                        mapView.repaint()
+                        val dy0 = event.getY(0) - initialY0
+                        val dy1 = event.getY(1) - initialY1
+                        val isParallelVerticalDrag = (dy0 * dy1 > 0) // Both fingers moving in same vertical direction
+
+                        // Classify gesture into exclusive mode
+                        if (activeTwoFingerMode == TwoFingerMode.NONE) {
+                            if (verticalDiff > 24f && isParallelVerticalDrag && angleDiff < 8.0) {
+                                activeTwoFingerMode = TwoFingerMode.TILTING
+                            } else if (angleDiff > 6.0) {
+                                activeTwoFingerMode = TwoFingerMode.ROTATING
+                            }
+                        }
+
+                        // Execute exclusively
+                        when (activeTwoFingerMode) {
+                            TwoFingerMode.ROTATING -> {
+                                val angleDelta = (currentAngle - initialPointerAngle).toFloat()
+                                mapView.rotation = initialMapRotation + angleDelta
+                                updateAllPinRotations()
+                                mapView.repaint()
+                            }
+                            TwoFingerMode.TILTING -> {
+                                val newTilt = (initialTilt - deltaY * 0.16f).coerceIn(0f, 55f)
+                                mapTilt = newTilt
+                                mapView.repaint()
+                            }
+                            TwoFingerMode.NONE -> {
+                                // Waiting for gesture intent
+                            }
+                        }
                     }
                 }
                 MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (event.pointerCount <= 2) {
                         isTwoFingerGestureActive = false
+                        activeTwoFingerMode = TwoFingerMode.NONE
                     }
                 }
             }
