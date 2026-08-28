@@ -183,6 +183,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 }
                 onLocationChanged(mockLocation)
                 Toast.makeText(this@MainActivity, String.format(Locale.getDefault(), "🧪 Virtual Location: %.4f, %.4f", latLong.latitude, latLong.longitude), Toast.LENGTH_SHORT).show()
+
+                // If a destination is already chosen, immediately calculate the road route from this new virtual location
+                if (viewModel.destPoint.value != null && isStartPointDynamicGps) {
+                    viewModel.setStartPoint(latLong)
+                    viewModel.calculateRoute()
+                }
             } else if (binding.cardSearchResults.visibility == View.VISIBLE) {
                 hideSearchDropdown()
             } else {

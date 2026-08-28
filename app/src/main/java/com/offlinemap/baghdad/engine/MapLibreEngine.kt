@@ -280,24 +280,42 @@ class MapLibreEngine(
         val points = activeRoutePoints ?: return
         if (points.size < 2) return
 
+        // 1. If user is off-route (> 35m from polyline), do NOT create an artificial straight-line shortcut
+        val minPolyDistance = GeoUtils.minDistanceToPolyline(userLoc, points)
+        if (minPolyDistance > 35.0) {
+            return
+        }
+
+        // 2. Find closest line segment on the active route
         var closestIdx = 0
-        var minDistance = Double.MAX_VALUE
+        var minSegDist = Double.MAX_VALUE
         for (i in 0 until points.size - 1) {
-            val dist = GeoUtils.calculateDistance(userLoc, points[i])
-            if (dist < minDistance) {
-                minDistance = dist
+            val d = GeoUtils.distanceToSegment(userLoc, points[i], points[i + 1])
+            if (d < minSegDist) {
+                minSegDist = d
                 closestIdx = i
             }
         }
+
+        // 3. Project user position onto that exact road segment (strictly follows the road geometry)
+        val a = points[closestIdx]
+        val b = points[closestIdx + 1]
+        val dx = b.longitude - a.longitude
+        val dy = b.latitude - a.latitude
+        val segLenSq = dx * dx + dy * dy
+        val t = if (segLenSq > 0) {
+            (((userLoc.longitude - a.longitude) * dx + (userLoc.latitude - a.latitude) * dy) / segLenSq).coerceIn(0.0, 1.0)
+        } else 0.0
+        val projectedPoint = Point.fromLngLat(a.longitude + t * dx, a.latitude + t * dy)
 
         val traveledPoints = mutableListOf<Point>()
         for (i in 0..closestIdx) {
             traveledPoints.add(Point.fromLngLat(points[i].longitude, points[i].latitude))
         }
-        traveledPoints.add(Point.fromLngLat(userLoc.longitude, userLoc.latitude))
+        traveledPoints.add(projectedPoint)
 
         val remainingPoints = mutableListOf<Point>()
-        remainingPoints.add(Point.fromLngLat(userLoc.longitude, userLoc.latitude))
+        remainingPoints.add(projectedPoint)
         for (i in (closestIdx + 1) until points.size) {
             remainingPoints.add(Point.fromLngLat(points[i].longitude, points[i].latitude))
         }
