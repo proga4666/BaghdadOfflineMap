@@ -110,4 +110,22 @@ object GeoUtils {
         }
         return minD
     }
+
+    /**
+     * Calculates initial azimuth bearing in degrees from point `from` to point `to` (0-360)
+     */
+    fun calculateBearing(from: LatLong, to: LatLong): Float {
+        val lat1 = Math.toRadians(from.latitude)
+        val lon1 = Math.toRadians(from.longitude)
+        val lat2 = Math.toRadians(to.latitude)
+        val lon2 = Math.toRadians(to.longitude)
+
+        val dLon = lon2 - lon1
+        val y = sin(dLon) * cos(lat2)
+        val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(dLon)
+
+        var bearing = Math.toDegrees(atan2(y, x)).toFloat()
+        if (bearing < 0) bearing += 360f
+        return bearing
+    }
 }

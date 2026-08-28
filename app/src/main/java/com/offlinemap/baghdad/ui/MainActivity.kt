@@ -68,6 +68,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private var lastGpsLocation: Location? = null
     private var selectedPinLocation: LatLong? = null
     private var isStartPointDynamicGps: Boolean = true
+    private var isVirtualLocationEnabled: Boolean = false
     private var autoRecenterJob: kotlinx.coroutines.Job? = null
     private var lastCalculatedStartLocation: LatLong? = null
 
@@ -89,6 +90,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        isVirtualLocationEnabled = getSharedPreferences("baghdad_map_prefs", Context.MODE_PRIVATE)
+            .getBoolean("virtual_location_mode", false)
 
         searchHistoryRepo = SearchHistoryRepository(this)
         voiceGuidanceManager = VoiceGuidanceManager(this)
@@ -163,9 +167,23 @@ class MainActivity : AppCompatActivity(), LocationListener {
             startLocationUpdates()
         }
 
-        // 1. Single Tap on Map: Drop temporary marker & show Options Callout
+        // 1. Single Tap on Map: Move Virtual Location (when testing enabled) or drop temporary marker & show Options Callout
         mapLibreEngine.onMapTapListener = { latLong ->
-            if (binding.cardSearchResults.visibility == View.VISIBLE) {
+            if (isVirtualLocationEnabled) {
+                // Testing simulation: Update user location to tapped point
+                val prev = lastGpsLocation?.let { LatLong(it.latitude, it.longitude) }
+                val bearing = if (prev != null) GeoUtils.calculateBearing(prev, latLong) else mapLibreEngine.lastUserBearing
+                val mockLocation = Location(LocationManager.GPS_PROVIDER).apply {
+                    latitude = latLong.latitude
+                    longitude = latLong.longitude
+                    accuracy = 4f
+                    this.bearing = bearing
+                    time = System.currentTimeMillis()
+                    elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
+                }
+                onLocationChanged(mockLocation)
+                Toast.makeText(this@MainActivity, String.format(Locale.getDefault(), "🧪 Virtual Location: %.4f, %.4f", latLong.latitude, latLong.longitude), Toast.LENGTH_SHORT).show()
+            } else if (binding.cardSearchResults.visibility == View.VISIBLE) {
                 hideSearchDropdown()
             } else {
                 selectedPinLocation = latLong
@@ -486,6 +504,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
             dialog.onThemeChanged = { newTheme ->
                 mapLibreEngine.setMapTheme(newTheme)
             }
+            dialog.onVirtualLocationModeChanged = { enabled ->
+                isVirtualLocationEnabled = enabled
+            }
             dialog.show(supportFragmentManager, UnifiedSettingsDialog.TAG)
         }
 
@@ -521,6 +542,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
             dialog.currentTheme = mapLibreEngine.currentThemePreset
             dialog.onThemeChanged = { newTheme ->
                 mapLibreEngine.setMapTheme(newTheme)
+            }
+            dialog.onVirtualLocationModeChanged = { enabled ->
+                isVirtualLocationEnabled = enabled
             }
             dialog.show(supportFragmentManager, UnifiedSettingsDialog.TAG)
         }

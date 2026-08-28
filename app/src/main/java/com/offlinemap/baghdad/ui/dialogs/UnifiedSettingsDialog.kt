@@ -21,6 +21,7 @@ class UnifiedSettingsDialog : BottomSheetDialogFragment() {
     private val viewModel: MapViewModel by activityViewModels()
 
     var onThemeChanged: ((MapThemePreset) -> Unit)? = null
+    var onVirtualLocationModeChanged: ((Boolean) -> Unit)? = null
     var currentTheme: MapThemePreset = MapThemePreset.WAZE_DARK
 
     override fun onCreateView(
@@ -89,6 +90,10 @@ class UnifiedSettingsDialog : BottomSheetDialogFragment() {
             DownloadMapDialog().show(parentFragmentManager, DownloadMapDialog.TAG)
         }
 
+        val prefs = requireContext().getSharedPreferences("baghdad_map_prefs", Context.MODE_PRIVATE)
+        val isVirtualLocation = prefs.getBoolean("virtual_location_mode", false)
+        binding.switchVirtualLocation.isChecked = isVirtualLocation
+
         binding.btnSaveAllSettings.setOnClickListener {
             // Save API key
             val key = binding.etGoogleApiKey.text?.toString() ?: ""
@@ -122,11 +127,16 @@ class UnifiedSettingsDialog : BottomSheetDialogFragment() {
             val isArabicSelected = binding.radioGroupVoiceLang.checkedRadioButtonId == binding.radioVoiceArabic.id
             voicePrefs.edit().putBoolean("is_arabic", isArabicSelected).apply()
 
-            val prefs = requireContext().getSharedPreferences("baghdad_map_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putString("map_theme_preset", selectedTheme.name).apply()
+            val isVirtual = binding.switchVirtualLocation.isChecked
+            prefs.edit()
+                .putString("map_theme_preset", selectedTheme.name)
+                .putBoolean("virtual_location_mode", isVirtual)
+                .apply()
 
             onThemeChanged?.invoke(selectedTheme)
-            Toast.makeText(requireContext(), "Settings saved!", Toast.LENGTH_SHORT).show()
+            onVirtualLocationModeChanged?.invoke(isVirtual)
+            val msg = if (isVirtual) "🧪 Virtual Location Enabled: Tap map to move" else "Settings saved!"
+            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
             dismiss()
         }
     }
