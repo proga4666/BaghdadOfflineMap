@@ -660,7 +660,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
         // Visual Lane Guidance Bar (Waze style)
         val lanes = targetInst?.lanes
-        if (!lanes.isNullOrEmpty() && state.distanceToNextManeuverMeters <= 600.0) {
+        if (!lanes.isNullOrEmpty() && state.distanceToNextManeuverMeters <= 2000.0) {
             binding.containerLaneArrows.removeAllViews()
             val density = resources.displayMetrics.density
             val iconSize = (22 * density).toInt()

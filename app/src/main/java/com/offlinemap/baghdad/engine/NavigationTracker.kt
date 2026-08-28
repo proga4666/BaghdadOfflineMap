@@ -25,6 +25,7 @@ class NavigationTracker(private val voiceManager: VoiceGuidanceManager) {
     private var currentStepIdx: Int = 0
     private var isNavigating: Boolean = false
 
+    private var hasAnnouncedFar = false
     private var hasAnnouncedAdvance = false
     private var hasAnnouncedImminent = false
     private var hasAnnouncedExecute = false
@@ -42,6 +43,7 @@ class NavigationTracker(private val voiceManager: VoiceGuidanceManager) {
         instructions = route.instructions
         currentStepIdx = 0
         isNavigating = true
+        hasAnnouncedFar = false
         hasAnnouncedAdvance = false
         hasAnnouncedImminent = false
         hasAnnouncedExecute = false
@@ -67,6 +69,7 @@ class NavigationTracker(private val voiceManager: VoiceGuidanceManager) {
         instructions = newRoute.instructions
         currentStepIdx = 0
         isNavigating = true
+        hasAnnouncedFar = false
         hasAnnouncedAdvance = false
         hasAnnouncedImminent = false
         hasAnnouncedExecute = false
@@ -140,7 +143,10 @@ class NavigationTracker(private val voiceManager: VoiceGuidanceManager) {
         }
 
         // Voice trigger logic for the upcoming turn maneuver
-        if (distToManeuver in 280.0..450.0 && !hasAnnouncedAdvance) {
+        if (distToManeuver in 800.0..1200.0 && !hasAnnouncedFar) {
+            hasAnnouncedFar = true
+            voiceManager.speakAdvanceTurn(targetManeuver, distToManeuver.toInt())
+        } else if (distToManeuver in 280.0..450.0 && !hasAnnouncedAdvance) {
             hasAnnouncedAdvance = true
             voiceManager.speakAdvanceTurn(targetManeuver, distToManeuver.toInt())
         } else if (distToManeuver in 50.0..140.0 && !hasAnnouncedImminent) {
@@ -154,6 +160,7 @@ class NavigationTracker(private val voiceManager: VoiceGuidanceManager) {
         // Advance to next instruction when passing maneuver junction
         if (distToManeuver < 20.0 && currentStepIdx < instructions.size - 1) {
             currentStepIdx++
+            hasAnnouncedFar = false
             hasAnnouncedAdvance = false
             hasAnnouncedImminent = false
             hasAnnouncedExecute = false

@@ -84,10 +84,30 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
             getTurnDirectionPhrase(nextInstruction)
         } else ""
 
+        val laneAdviceAr = nextInstruction?.lanes?.let { lanes ->
+            val activeLeft = lanes.firstOrNull()?.isActive == true
+            val activeRight = lanes.lastOrNull()?.isActive == true
+            when {
+                activeLeft && !activeRight -> "، والزم المسار الأيسر"
+                activeRight && !activeLeft -> "، والزم المسار الأيمن"
+                else -> ""
+            }
+        } ?: ""
+
+        val laneAdviceEn = nextInstruction?.lanes?.let { lanes ->
+            val activeLeft = lanes.firstOrNull()?.isActive == true
+            val activeRight = lanes.lastOrNull()?.isActive == true
+            when {
+                activeLeft && !activeRight -> ", use the left lane"
+                activeRight && !activeLeft -> ", use the right lane"
+                else -> ""
+            }
+        } ?: ""
+
         val text = if (isArabic) {
             if (currentStreet.isNotBlank()) {
                 if (nextInstruction != null && nextInstruction.turnType != RouteInstruction.TurnType.STRAIGHT && nextStreet.isNotBlank()) {
-                    "انطلق باتجاه $currentStreet ، ثم $nextTurnPhrase إلى $nextStreet"
+                    "انطلق باتجاه $currentStreet ، ثم $nextTurnPhrase إلى $nextStreet$laneAdviceAr"
                 } else {
                     "انطلق باتجاه $currentStreet ، المسافة $totalDistanceFormatted"
                 }
@@ -98,7 +118,7 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
             val nextTurnEn = if (nextInstruction != null && nextInstruction.turnType != RouteInstruction.TurnType.STRAIGHT) getTurnDirectionPhraseEn(nextInstruction) else ""
             if (currentStreet.isNotBlank()) {
                 if (nextInstruction != null && nextInstruction.turnType != RouteInstruction.TurnType.STRAIGHT && nextStreet.isNotBlank()) {
-                    "Head towards $currentStreet, then $nextTurnEn onto $nextStreet"
+                    "Head towards $currentStreet, then $nextTurnEn onto $nextStreet$laneAdviceEn"
                 } else {
                     "Head towards $currentStreet, total distance $totalDistanceFormatted"
                 }
