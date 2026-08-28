@@ -36,6 +36,7 @@ import com.offlinemap.baghdad.engine.MapLibreEngine
 import com.offlinemap.baghdad.engine.MapThemePreset
 import com.offlinemap.baghdad.engine.NavProgressState
 import com.offlinemap.baghdad.engine.NavigationTracker
+import com.offlinemap.baghdad.engine.PreferredRoutingProvider
 import com.offlinemap.baghdad.engine.VoiceGuidanceManager
 import com.offlinemap.baghdad.ui.adapter.InstructionAdapter
 import com.offlinemap.baghdad.ui.adapter.PlaceSearchAdapter
@@ -443,9 +444,19 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
         }
 
-        // Point Picker rows (Integrated in Bottom Sheet)
-        binding.bottomSheetRoute.rowStartPoint.setOnClickListener { showLandmarkPicker(isSelectingStart = true) }
-        binding.bottomSheetRoute.rowDestPoint.setOnClickListener { showLandmarkPicker(isSelectingStart = false) }
+        // Point Picker rows (Integrated in Bottom Sheet - Focuses live search)
+        binding.bottomSheetRoute.rowStartPoint.setOnClickListener {
+            binding.etSearchPlaces.requestFocus()
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+            imm?.showSoftInput(binding.etSearchPlaces, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            Toast.makeText(this, "Search start location above (ابحث عن نقطة الانطلاق)", Toast.LENGTH_SHORT).show()
+        }
+        binding.bottomSheetRoute.rowDestPoint.setOnClickListener {
+            binding.etSearchPlaces.requestFocus()
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+            imm?.showSoftInput(binding.etSearchPlaces, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            Toast.makeText(this, "Search destination above (ابحث عن الوجهة)", Toast.LENGTH_SHORT).show()
+        }
 
         // Clear button (Integrated in Bottom Sheet)
         binding.bottomSheetRoute.btnClearRoute.setOnClickListener {
@@ -564,6 +575,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
             startLocationUpdates()
         }
 
+        // Fast Online / Offline Routing Switches (Map Pill & Floating FAB)
+        binding.fabRoutingMode.setOnClickListener { toggleRoutingMode() }
+        binding.btnMapRoutingModeToggle.setOnClickListener { toggleRoutingMode() }
+
         // Start Live Turn-by-Turn Navigation Button
         binding.bottomSheetRoute.btnStartLiveNavigation.setOnClickListener {
             val route = activeRouteResult ?: return@setOnClickListener
@@ -582,15 +597,47 @@ class MainActivity : AppCompatActivity(), LocationListener {
             val msg = if (voiceGuidanceManager.isMuted) "🔇 Voice Guidance Muted (تم كتم الصوت)" else "🔊 Voice Guidance Active (تم تفعيل الصوت)"
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
         }
+    }
 
-        // Quick Route Calculate FAB
-        binding.fabCalculateRoute.setOnClickListener {
-            if (viewModel.startPoint.value != null && viewModel.destPoint.value != null) {
-                viewModel.calculateRoute()
-            } else {
-                Toast.makeText(this, "Please pick both Start and Destination points first", Toast.LENGTH_SHORT).show()
-                showLandmarkPicker(isSelectingStart = viewModel.startPoint.value == null)
-            }
+    private fun updateRoutingModeUi(provider: PreferredRoutingProvider) {
+        val isOnline = (provider == PreferredRoutingProvider.GOOGLE_TRAFFIC || provider == PreferredRoutingProvider.AUTO)
+        if (isOnline) {
+            binding.btnMapRoutingModeToggle.text = "🌐 Live Traffic (Online)"
+            binding.btnMapRoutingModeToggle.setIconResource(R.drawable.ic_traffic_online)
+            binding.btnMapRoutingModeToggle.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#2E7D32"))
+            binding.fabRoutingMode.setImageResource(R.drawable.ic_traffic_online)
+            binding.fabRoutingMode.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E8F5E9"))
+            binding.fabRoutingMode.imageTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#2E7D32"))
+        } else {
+            binding.btnMapRoutingModeToggle.text = "⚡ 100% Offline"
+            binding.btnMapRoutingModeToggle.setIconResource(R.drawable.ic_bolt_offline)
+            binding.btnMapRoutingModeToggle.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0288D1"))
+            binding.fabRoutingMode.setImageResource(R.drawable.ic_bolt_offline)
+            binding.fabRoutingMode.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E1F5FE"))
+            binding.fabRoutingMode.imageTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0288D1"))
+        }
+    }
+
+    private fun toggleRoutingMode() {
+        val current = viewModel.preferredProvider.value
+        val isCurrentlyOnline = (current == PreferredRoutingProvider.GOOGLE_TRAFFIC || current == PreferredRoutingProvider.AUTO)
+        val next = if (isCurrentlyOnline) {
+            PreferredRoutingProvider.OFFLINE_GRAPHHOPPER
+        } else {
+            PreferredRoutingProvider.GOOGLE_TRAFFIC
+        }
+        viewModel.setPreferredProvider(next)
+        updateRoutingModeUi(next)
+
+        val msg = if (next == PreferredRoutingProvider.GOOGLE_TRAFFIC) {
+            "🌐 Switched to Online Live Traffic Routing (مسارات المرور المباشر)"
+        } else {
+            "⚡ Switched to 100% Offline GraphHopper Routing (مسارات بدون إنترنت)"
+        }
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+
+        if (viewModel.startPoint.value != null && viewModel.destPoint.value != null) {
+            viewModel.calculateRoute()
         }
     }
 
@@ -599,6 +646,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
         binding.cardSearchBar.hideAnimated()
         binding.containerFloatingButtons.hideAnimated()
+        binding.btnMapRoutingModeToggle.hideAnimated()
         binding.btnRecenterFloating.hideAnimated()
         binding.cardPinSelectionCallout.hideAnimated()
 
@@ -616,6 +664,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         binding.cardNavHud.hideAnimated()
         binding.cardSearchBar.showAnimated()
         binding.containerFloatingButtons.showAnimated()
+        binding.btnMapRoutingModeToggle.showAnimated()
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
 
         mapLibreEngine.setTrackingMode(MapEngine.TrackingMode.FOLLOW, animated = true)
@@ -772,6 +821,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
         lifecycleScope.launch {
             viewModel.destPoint.collectLatest { point ->
                 mapLibreEngine.setDestinationPoint(point)
+            }
+        }
+
+        lifecycleScope.launch {
+            viewModel.preferredProvider.collectLatest { provider ->
+                updateRoutingModeUi(provider)
             }
         }
 

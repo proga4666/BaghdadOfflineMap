@@ -93,21 +93,23 @@
             app:chipStrokeWidth="0dp" />
     </LinearLayout>
 
-    <!-- Start Navigation Button -->
+    <!-- Prominent, Ergonomic Start Navigation Button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnStartLiveNavigation"
-        style="@style/Widget.Material3.Button"
+        style="@style/Widget.Material3.Button.ElevatedButton"
         android:layout_width="match_parent"
-        android:layout_height="46dp"
-        android:layout_marginTop="8dp"
-        android:backgroundTint="@color/primary"
+        android:layout_height="56dp"
+        android:layout_marginTop="12dp"
+        android:backgroundTint="#0288D1"
+        android:elevation="6dp"
         android:text="Start Navigation (ابدأ الملاحة)"
         android:textColor="@color/white"
-        android:textSize="14sp"
+        android:textSize="16sp"
         android:textStyle="bold"
-        app:cornerRadius="14dp"
+        app:cornerRadius="28dp"
         app:icon="@drawable/ic_navigation_arrow"
         app:iconGravity="textStart"
+        app:iconSize="22dp"
         app:iconTint="@color/white" />
 
     <View

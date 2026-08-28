@@ -309,29 +309,51 @@
             app:srcCompat="@drawable/ic_layers"
             app:tint="@color/primary" />
 
+        <!-- Online / Offline Routing Mode FAB (🌐 / ⚡) -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabRoutingMode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:contentDescription="Toggle Online / Offline Routing"
+            app:backgroundTint="@color/surface"
+            app:fabSize="mini"
+            app:srcCompat="@drawable/ic_traffic_online"
+            app:tint="@color/primary" />
+
         <!-- My Location FAB (🎯) -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fabCenterBaghdad"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
             android:contentDescription="Center Location"
             app:backgroundTint="@color/surface"
             app:fabSize="mini"
             app:srcCompat="@drawable/ic_my_location"
             app:tint="@color/primary" />
-
-        <!-- Quick Route FAB -->
-        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-            android:id="@+id/fabCalculateRoute"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Route"
-            android:textColor="@color/white"
-            app:backgroundTint="@color/primary"
-            app:icon="@drawable/ic_directions"
-            app:iconTint="@color/white" />
     </LinearLayout>
+
+    <!-- Fast Online/Offline Routing Mode Pill (Top Left under Search) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnMapRoutingModeToggle"
+        style="@style/Widget.Material3.Button.ElevatedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="34dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="74dp"
+        android:backgroundTint="#2E7D32"
+        android:elevation="4dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:paddingHorizontal="10dp"
+        android:text="🌐 Online (Live Traffic)"
+        android:textColor="@color/white"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        app:cornerRadius="17dp"
+        app:icon="@drawable/ic_traffic_online"
+        app:iconSize="14dp"
+        app:iconTint="@color/white" />
 
     <!-- Floating "Re-center" Button (Appears when panning during Follow/Rotate mode) -->
     <com.google.android.material.button.MaterialButton
