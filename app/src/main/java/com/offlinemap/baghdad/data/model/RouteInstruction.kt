@@ -31,17 +31,17 @@ data class RouteInstruction(
     }
 
     val turnType: TurnType
-        get() = when (sign) {
-            0 -> TurnType.STRAIGHT
-            -1 -> TurnType.SLIGHT_LEFT
-            -2 -> TurnType.LEFT
-            -3 -> TurnType.SHARP_LEFT
-            1 -> TurnType.SLIGHT_RIGHT
-            2 -> TurnType.RIGHT
-            3 -> TurnType.SHARP_RIGHT
-            4 -> TurnType.FINISH
-            5 -> TurnType.REACHED_VIA
-            -6, 6 -> TurnType.UTURN
-            else -> TurnType.STRAIGHT
+        get() {
+            val lower = text.lowercase()
+            return when {
+                sign == 1 || lower.contains("keep right") || lower.contains("slight right") || lower.contains("الزم اليمين") || lower.contains("يمينا قليلا") -> TurnType.SLIGHT_RIGHT
+                sign == -1 || lower.contains("keep left") || lower.contains("slight left") || lower.contains("الزم اليسار") || lower.contains("يسارا قليلا") -> TurnType.SLIGHT_LEFT
+                sign == 2 || sign == 3 || lower.contains("turn right") || lower.contains("sharp right") || lower.contains("انعطف يمين") -> TurnType.RIGHT
+                sign == -2 || sign == -3 || lower.contains("turn left") || lower.contains("sharp left") || lower.contains("انعطف يسار") -> TurnType.LEFT
+                sign == 4 || lower.contains("arrive") || lower.contains("destination") || lower.contains("وصلت") -> TurnType.FINISH
+                sign == -6 || sign == 6 || lower.contains("u-turn") || lower.contains("دوران") || lower.contains("استدر") -> TurnType.UTURN
+                sign == 5 -> TurnType.REACHED_VIA
+                else -> TurnType.STRAIGHT
+            }
         }
 }

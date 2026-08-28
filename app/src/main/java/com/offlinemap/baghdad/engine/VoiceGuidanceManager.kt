@@ -80,13 +80,13 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
     fun speakDeparture(firstInstruction: RouteInstruction?, nextInstruction: RouteInstruction?, totalDistanceFormatted: String) {
         val currentStreet = firstInstruction?.streetName?.cleanStreetName() ?: ""
         val nextStreet = nextInstruction?.streetName?.cleanStreetName() ?: ""
-        val nextTurnPhrase = if (nextInstruction != null && nextInstruction.sign != 0) {
-            getTurnDirectionPhrase(nextInstruction.sign)
+        val nextTurnPhrase = if (nextInstruction != null && nextInstruction.turnType != RouteInstruction.TurnType.STRAIGHT) {
+            getTurnDirectionPhrase(nextInstruction)
         } else ""
 
         val text = if (isArabic) {
             if (currentStreet.isNotBlank()) {
-                if (nextInstruction != null && nextInstruction.sign != 0 && nextStreet.isNotBlank()) {
+                if (nextInstruction != null && nextInstruction.turnType != RouteInstruction.TurnType.STRAIGHT && nextStreet.isNotBlank()) {
                     "انطلق باتجاه $currentStreet ، ثم $nextTurnPhrase إلى $nextStreet"
                 } else {
                     "انطلق باتجاه $currentStreet ، المسافة $totalDistanceFormatted"
@@ -95,9 +95,9 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
                 "انطلق على المسار ، المسافة $totalDistanceFormatted"
             }
         } else {
-            val nextTurnEn = if (nextInstruction != null && nextInstruction.sign != 0) getTurnDirectionPhraseEn(nextInstruction.sign) else ""
+            val nextTurnEn = if (nextInstruction != null && nextInstruction.turnType != RouteInstruction.TurnType.STRAIGHT) getTurnDirectionPhraseEn(nextInstruction) else ""
             if (currentStreet.isNotBlank()) {
-                if (nextInstruction != null && nextInstruction.sign != 0 && nextStreet.isNotBlank()) {
+                if (nextInstruction != null && nextInstruction.turnType != RouteInstruction.TurnType.STRAIGHT && nextStreet.isNotBlank()) {
                     "Head towards $currentStreet, then $nextTurnEn onto $nextStreet"
                 } else {
                     "Head towards $currentStreet, total distance $totalDistanceFormatted"
@@ -111,7 +111,7 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
 
     fun speakAdvanceTurn(instruction: RouteInstruction, distanceMeters: Int) {
         val street = instruction.streetName.cleanStreetName()
-        val turnPhrase = getTurnDirectionPhrase(instruction.sign)
+        val turnPhrase = getTurnDirectionPhrase(instruction)
         val distText = formatDistanceVoice(distanceMeters)
 
         val laneAdviceAr = instruction.lanes?.let { lanes ->
@@ -141,7 +141,7 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
                 "بعد $distText ، $turnPhrase$laneAdviceAr"
             }
         } else {
-            val englishTurn = getTurnDirectionPhraseEn(instruction.sign)
+            val englishTurn = getTurnDirectionPhraseEn(instruction)
             if (street.isNotBlank()) {
                 "In $distText, $englishTurn onto $street$laneAdviceEn"
             } else {
@@ -153,7 +153,7 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
 
     fun speakExecuteTurn(instruction: RouteInstruction) {
         val street = instruction.streetName.cleanStreetName()
-        val turnPhrase = getTurnDirectionPhrase(instruction.sign)
+        val turnPhrase = getTurnDirectionPhrase(instruction)
 
         val text = if (isArabic) {
             if (street.isNotBlank()) {
@@ -162,7 +162,7 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
                 "$turnPhrase الآن"
             }
         } else {
-            val englishTurn = getTurnDirectionPhraseEn(instruction.sign)
+            val englishTurn = getTurnDirectionPhraseEn(instruction)
             if (street.isNotBlank()) {
                 "$englishTurn now onto $street"
             } else {
@@ -208,30 +208,28 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
         isInitialized = false
     }
 
-    private fun getTurnDirectionPhrase(sign: Int): String {
-        return when (sign) {
-            -1 -> "انعطف يساراً قليلاً"
-            -2 -> "انعطف يساراً"
-            -3 -> "انعطف يساراً حاداً"
-            1 -> "انعطف يميناً قليلاً"
-            2 -> "انعطف يميناً"
-            3 -> "انعطف يميناً حاداً"
-            4 -> "وجهتك على الطريق"
-            -6, 6 -> "قم بالدوران للخلف"
+    private fun getTurnDirectionPhrase(instruction: RouteInstruction): String {
+        return when (instruction.turnType) {
+            RouteInstruction.TurnType.SLIGHT_LEFT -> "الزم اليسار"
+            RouteInstruction.TurnType.LEFT, RouteInstruction.TurnType.SHARP_LEFT -> "انعطف يساراً"
+            RouteInstruction.TurnType.SLIGHT_RIGHT -> "الزم اليمين"
+            RouteInstruction.TurnType.RIGHT, RouteInstruction.TurnType.SHARP_RIGHT -> "انعطف يميناً"
+            RouteInstruction.TurnType.FINISH -> "وجهتك على الطريق"
+            RouteInstruction.TurnType.UTURN -> "قم بالدوران للخلف"
             else -> "تابع السير إلى الأمام"
         }
     }
 
-    private fun getTurnDirectionPhraseEn(sign: Int): String {
-        return when (sign) {
-            -1 -> "keep left"
-            -2 -> "turn left"
-            -3 -> "make a sharp left"
-            1 -> "keep right"
-            2 -> "turn right"
-            3 -> "make a sharp right"
-            4 -> "your destination is ahead"
-            -6, 6 -> "make a U-turn"
+    private fun getTurnDirectionPhraseEn(instruction: RouteInstruction): String {
+        return when (instruction.turnType) {
+            RouteInstruction.TurnType.SLIGHT_LEFT -> "keep left"
+            RouteInstruction.TurnType.LEFT -> "turn left"
+            RouteInstruction.TurnType.SHARP_LEFT -> "make a sharp left"
+            RouteInstruction.TurnType.SLIGHT_RIGHT -> "keep right"
+            RouteInstruction.TurnType.RIGHT -> "turn right"
+            RouteInstruction.TurnType.SHARP_RIGHT -> "make a sharp right"
+            RouteInstruction.TurnType.FINISH -> "your destination is ahead"
+            RouteInstruction.TurnType.UTURN -> "make a U-turn"
             else -> "continue straight"
         }
     }

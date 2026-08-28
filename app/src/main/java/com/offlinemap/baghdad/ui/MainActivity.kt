@@ -635,8 +635,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
         val targetInst = state.nextInstruction ?: state.currentInstruction
         val iconRes = when (targetInst?.turnType) {
-            RouteInstruction.TurnType.LEFT, RouteInstruction.TurnType.SLIGHT_LEFT, RouteInstruction.TurnType.SHARP_LEFT -> R.drawable.ic_turn_left
-            RouteInstruction.TurnType.RIGHT, RouteInstruction.TurnType.SLIGHT_RIGHT, RouteInstruction.TurnType.SHARP_RIGHT -> R.drawable.ic_turn_right
+            RouteInstruction.TurnType.SLIGHT_LEFT -> R.drawable.ic_slight_left
+            RouteInstruction.TurnType.LEFT, RouteInstruction.TurnType.SHARP_LEFT -> R.drawable.ic_turn_left
+            RouteInstruction.TurnType.SLIGHT_RIGHT -> R.drawable.ic_slight_right
+            RouteInstruction.TurnType.RIGHT, RouteInstruction.TurnType.SHARP_RIGHT -> R.drawable.ic_turn_right
             RouteInstruction.TurnType.FINISH -> R.drawable.ic_finish
             RouteInstruction.TurnType.UTURN -> R.drawable.ic_turn_left
             else -> R.drawable.ic_turn_straight
