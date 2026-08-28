@@ -49,9 +49,17 @@ class NavigationTracker(private val voiceManager: VoiceGuidanceManager) {
         Log.i("NavigationTracker", "Started Turn-by-Turn Navigation with ${instructions.size} steps.")
 
         val firstInst = instructions.firstOrNull()
-        voiceManager.speakDeparture(firstInst, GeoUtils.formatDistance(route.distanceMeters))
+        val nextInst = instructions.getOrNull(1)
+        voiceManager.speakDeparture(firstInst, nextInst, GeoUtils.formatDistance(route.distanceMeters))
 
-        emitCurrentState(distanceToManeuver = firstInst?.distanceMeters ?: 0.0, remainingDistance = route.distanceMeters, remainingTime = route.timeMillis, isOffRoute = false, hasArrived = false)
+        val initialDist = firstInst?.distanceMeters ?: 0.0
+        emitCurrentState(
+            distanceToManeuver = initialDist,
+            remainingDistance = route.distanceMeters,
+            remainingTime = route.timeMillis,
+            isOffRoute = false,
+            hasArrived = false
+        )
     }
 
     fun updateReroute(newRoute: RouteResult) {
@@ -66,8 +74,10 @@ class NavigationTracker(private val voiceManager: VoiceGuidanceManager) {
         Log.i("NavigationTracker", "Updated navigation with recalculated route (${instructions.size} steps).")
 
         val firstInst = instructions.firstOrNull()
+        val nextInst = instructions.getOrNull(1)
+        val initialDist = firstInst?.distanceMeters ?: 0.0
         emitCurrentState(
-            distanceToManeuver = firstInst?.distanceMeters ?: 0.0,
+            distanceToManeuver = initialDist,
             remainingDistance = newRoute.distanceMeters,
             remainingTime = newRoute.timeMillis,
             isOffRoute = false,
@@ -118,27 +128,30 @@ class NavigationTracker(private val voiceManager: VoiceGuidanceManager) {
         }
 
         // 3. Maneuver Evaluation
-        val curInst = instructions.getOrNull(currentStepIdx) ?: return
-        val maneuverLoc = curInst.location ?: estimateManeuverLocation(currentStepIdx)
+        val currentLeg = instructions.getOrNull(currentStepIdx) ?: return
+        val nextLeg = instructions.getOrNull(currentStepIdx + 1)
+        val targetManeuver = nextLeg ?: currentLeg
+
+        val maneuverLoc = nextLeg?.location ?: estimateManeuverLocation(currentStepIdx + 1)
         val distToManeuver = if (maneuverLoc != null) {
             GeoUtils.calculateDistance(userLoc, maneuverLoc)
         } else {
-            curInst.distanceMeters
+            currentLeg.distanceMeters
         }
 
-        // Voice trigger logic
+        // Voice trigger logic for the upcoming turn maneuver
         if (distToManeuver in 280.0..450.0 && !hasAnnouncedAdvance) {
             hasAnnouncedAdvance = true
-            voiceManager.speakAdvanceTurn(curInst, distToManeuver.toInt())
-        } else if (distToManeuver in 65.0..140.0 && !hasAnnouncedImminent) {
+            voiceManager.speakAdvanceTurn(targetManeuver, distToManeuver.toInt())
+        } else if (distToManeuver in 50.0..140.0 && !hasAnnouncedImminent) {
             hasAnnouncedImminent = true
-            voiceManager.speakAdvanceTurn(curInst, distToManeuver.toInt())
+            voiceManager.speakAdvanceTurn(targetManeuver, distToManeuver.toInt())
         } else if (distToManeuver <= 25.0 && !hasAnnouncedExecute) {
             hasAnnouncedExecute = true
-            voiceManager.speakExecuteTurn(curInst)
+            voiceManager.speakExecuteTurn(targetManeuver)
         }
 
-        // Advance to next instruction when passing maneuver
+        // Advance to next instruction when passing maneuver junction
         if (distToManeuver < 20.0 && currentStepIdx < instructions.size - 1) {
             currentStepIdx++
             hasAnnouncedAdvance = false

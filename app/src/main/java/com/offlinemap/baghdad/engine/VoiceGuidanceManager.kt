@@ -77,17 +77,31 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
         }
     }
 
-    fun speakDeparture(firstInstruction: RouteInstruction?, totalDistanceFormatted: String) {
-        val street = firstInstruction?.streetName?.cleanStreetName() ?: ""
+    fun speakDeparture(firstInstruction: RouteInstruction?, nextInstruction: RouteInstruction?, totalDistanceFormatted: String) {
+        val currentStreet = firstInstruction?.streetName?.cleanStreetName() ?: ""
+        val nextStreet = nextInstruction?.streetName?.cleanStreetName() ?: ""
+        val nextTurnPhrase = if (nextInstruction != null && nextInstruction.sign != 0) {
+            getTurnDirectionPhrase(nextInstruction.sign)
+        } else ""
+
         val text = if (isArabic) {
-            if (street.isNotBlank()) {
-                "انطلق باتجاه $street ، المسافة $totalDistanceFormatted"
+            if (currentStreet.isNotBlank()) {
+                if (nextInstruction != null && nextInstruction.sign != 0 && nextStreet.isNotBlank()) {
+                    "انطلق باتجاه $currentStreet ، ثم $nextTurnPhrase إلى $nextStreet"
+                } else {
+                    "انطلق باتجاه $currentStreet ، المسافة $totalDistanceFormatted"
+                }
             } else {
                 "انطلق على المسار ، المسافة $totalDistanceFormatted"
             }
         } else {
-            if (street.isNotBlank()) {
-                "Head towards $street, total distance $totalDistanceFormatted"
+            val nextTurnEn = if (nextInstruction != null && nextInstruction.sign != 0) getTurnDirectionPhraseEn(nextInstruction.sign) else ""
+            if (currentStreet.isNotBlank()) {
+                if (nextInstruction != null && nextInstruction.sign != 0 && nextStreet.isNotBlank()) {
+                    "Head towards $currentStreet, then $nextTurnEn onto $nextStreet"
+                } else {
+                    "Head towards $currentStreet, total distance $totalDistanceFormatted"
+                }
             } else {
                 "Head onto the route, total distance $totalDistanceFormatted"
             }

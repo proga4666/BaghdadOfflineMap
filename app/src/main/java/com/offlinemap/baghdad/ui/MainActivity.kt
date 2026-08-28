@@ -630,11 +630,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun updateNavigationHud(state: NavProgressState) {
         if (!navigationTracker.isTracking) return
 
-        val inst = state.currentInstruction
-        val iconRes = when (inst?.turnType) {
+        val targetInst = state.nextInstruction ?: state.currentInstruction
+        val iconRes = when (targetInst?.turnType) {
             RouteInstruction.TurnType.LEFT, RouteInstruction.TurnType.SLIGHT_LEFT, RouteInstruction.TurnType.SHARP_LEFT -> R.drawable.ic_turn_left
             RouteInstruction.TurnType.RIGHT, RouteInstruction.TurnType.SLIGHT_RIGHT, RouteInstruction.TurnType.SHARP_RIGHT -> R.drawable.ic_turn_right
             RouteInstruction.TurnType.FINISH -> R.drawable.ic_finish
+            RouteInstruction.TurnType.UTURN -> R.drawable.ic_turn_left
             else -> R.drawable.ic_turn_straight
         }
         binding.ivNavTurnIcon.setImageResource(iconRes)
@@ -645,7 +646,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             GeoUtils.formatDistance(state.distanceToNextManeuverMeters)
         }
 
-        val streetName = inst?.streetName?.ifBlank { inst.text } ?: "Continue on route"
+        val streetName = targetInst?.streetName?.ifBlank { targetInst.text } ?: state.currentInstruction?.streetName?.ifBlank { "Continue on route" } ?: "Continue on route"
         binding.tvNavNextStreet.text = streetName
 
         val remainingDistStr = GeoUtils.formatDistance(state.remainingDistanceMeters)
