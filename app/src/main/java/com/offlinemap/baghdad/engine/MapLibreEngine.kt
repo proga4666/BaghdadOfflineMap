@@ -226,9 +226,10 @@ class MapLibreEngine(
                 .pulseEnabled(true)
                 .pulseColor(Color.parseColor("#00E5FF"))
                 .pulseAlpha(0.35f)
-                .foregroundDrawable(R.drawable.ic_navigation_arrow)
+                .gpsDrawable(R.drawable.ic_navigation_arrow)
+                .bearingDrawable(R.drawable.ic_navigation_arrow)
                 .bearingTintColor(Color.parseColor("#00E5FF"))
-                .accuracyAlpha(0.18f)
+                .accuracyAlpha(0.15f)
                 .accuracyColor(Color.parseColor("#29B6F6"))
                 .elevation(8f)
                 .build()
@@ -241,7 +242,7 @@ class MapLibreEngine(
             val lc = map.locationComponent
             lc.activateLocationComponent(activationOptions)
             lc.isLocationComponentEnabled = true
-            lc.renderMode = RenderMode.COMPASS
+            lc.renderMode = RenderMode.GPS
             lc.cameraMode = CameraMode.NONE
             locationComponent = lc
         } catch (e: Exception) {
