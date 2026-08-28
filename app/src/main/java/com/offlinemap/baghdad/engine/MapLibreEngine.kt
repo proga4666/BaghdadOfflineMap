@@ -14,6 +14,13 @@ import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.location.LocationComponent
+import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.LocationComponentOptions
+import org.maplibre.android.location.modes.CameraMode
+import org.maplibre.android.location.modes.RenderMode
+import android.location.Location
+import android.location.LocationManager
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory.*
@@ -210,49 +217,59 @@ class MapLibreEngine(
         style.addLayer(symbolLayer)
     }
 
-    private fun setupUserLocationLayer(style: Style) {
-        val uSource = GeoJsonSource(USER_LOC_SOURCE_ID)
-        style.addSource(uSource)
-        userLocationSource = uSource
+    private var locationComponent: LocationComponent? = null
 
-        val userSymbolLayer = SymbolLayer(USER_LOC_LAYER_ID, USER_LOC_SOURCE_ID).apply {
-            setProperties(
-                iconImage(ICON_NAV_ARROW),
-                iconRotate(org.maplibre.android.style.expressions.Expression.get("bearing")),
-                iconAllowOverlap(true),
-                iconIgnorePlacement(true),
-                iconAnchor(Property.ICON_ANCHOR_CENTER),
-                iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
-                iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_MAP)
-            )
+    private fun setupUserLocationLayer(style: Style) {
+        val map = mapLibreMap ?: return
+        try {
+            val options = LocationComponentOptions.builder(context)
+                .pulseEnabled(true)
+                .pulseColor(Color.parseColor("#00E5FF"))
+                .pulseAlpha(0.35f)
+                .foregroundDrawable(R.drawable.ic_navigation_arrow)
+                .bearingTintColor(Color.parseColor("#00E5FF"))
+                .accuracyAlpha(0.18f)
+                .accuracyColor(Color.parseColor("#29B6F6"))
+                .elevation(8f)
+                .build()
+
+            val activationOptions = LocationComponentActivationOptions.builder(context, style)
+                .locationComponentOptions(options)
+                .useDefaultLocationEngine(false)
+                .build()
+
+            val lc = map.locationComponent
+            lc.activateLocationComponent(activationOptions)
+            lc.isLocationComponentEnabled = true
+            lc.renderMode = RenderMode.COMPASS
+            lc.cameraMode = CameraMode.NONE
+            locationComponent = lc
+        } catch (e: Exception) {
+            Log.e("MapLibreEngine", "Failed to activate LocationComponent: ${e.message}")
         }
-        style.addLayer(userSymbolLayer)
     }
 
-    fun setUserLocation(latLong: LatLong, accuracy: Float = 0f, bearing: Float = 0f) {
-        val prevLoc = lastUserLocation
-        val prevBearing = lastUserBearing
-        val isFirst = (prevLoc == null)
-
+    fun setUserLocation(latLong: LatLong, accuracy: Float = 4f, bearing: Float = 0f) {
         lastUserLocation = latLong
         lastUserBearing = bearing
 
-        val distMoved = if (prevLoc != null) GeoUtils.calculateDistance(prevLoc, latLong) else 999.0
-        val bearingDiff = kotlin.math.abs(prevBearing - bearing)
-
-        // Throttle GeoJSON updates to eliminate flickering
-        if (isFirst || distMoved > 0.4 || bearingDiff > 1.2f) {
-            val pt = Point.fromLngLat(latLong.longitude, latLong.latitude)
-            val feature = Feature.fromGeometry(pt).apply {
-                addNumberProperty("bearing", bearing)
-            }
-            userLocationSource?.setGeoJson(FeatureCollection.fromFeatures(listOf(feature)))
+        // 1. Update native hardware LocationComponent (zero flicker, zero disappear on tilt)
+        val androidLoc = Location(LocationManager.GPS_PROVIDER).apply {
+            latitude = latLong.latitude
+            longitude = latLong.longitude
+            this.accuracy = accuracy
+            this.bearing = bearing
+            time = System.currentTimeMillis()
+            elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
         }
+        locationComponent?.forceLocationUpdate(androidLoc)
 
+        // 2. Update live route trimming
         if (activeRoutePoints != null) {
             updateRouteProgress(latLong)
         }
 
+        // 3. Camera follow & 3D tilt tracking
         val map = mapLibreMap ?: return
         if (!isTrackingSuspended) {
             when (trackingMode) {
