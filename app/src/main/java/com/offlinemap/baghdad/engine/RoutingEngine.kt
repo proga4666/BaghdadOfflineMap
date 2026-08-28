@@ -218,6 +218,7 @@ class RoutingEngine(private val context: Context) {
                     val instLoc = if (inst.points != null && inst.points.size() > 0) {
                         LatLong(inst.points.getLat(0), inst.points.getLon(0))
                     } else null
+                    val lanes = generateLanesForInstruction(inst.sign, inst.name)
                     instructions.add(
                         RouteInstruction(
                             text = turnDesc,
@@ -225,7 +226,8 @@ class RoutingEngine(private val context: Context) {
                             timeMillis = inst.time,
                             sign = inst.sign,
                             streetName = inst.name,
-                            location = instLoc
+                            location = instLoc,
+                            lanes = lanes
                         )
                     )
                 }
@@ -324,6 +326,60 @@ class RoutingEngine(private val context: Context) {
             trafficDelayMins = 0,
             summary = "Direct Offline Route"
         )
+    }
+
+    private fun generateLanesForInstruction(sign: Int, streetName: String): List<com.offlinemap.baghdad.data.model.LaneInfo>? {
+        val isMajorAvenueOrHighway = streetName.contains("شارع", ignoreCase = true) ||
+                streetName.contains("طريق", ignoreCase = true) ||
+                streetName.contains("سريع", ignoreCase = true) ||
+                streetName.contains("جسر", ignoreCase = true) ||
+                streetName.contains("Street", ignoreCase = true) ||
+                streetName.contains("Highway", ignoreCase = true) ||
+                streetName.contains("Expressway", ignoreCase = true) ||
+                streetName.contains("Bridge", ignoreCase = true) ||
+                streetName.contains("Road", ignoreCase = true) ||
+                streetName.contains("Avenue", ignoreCase = true)
+
+        if (!isMajorAvenueOrHighway && sign == 0) return null
+
+        return when (sign) {
+            -2, -3 -> listOf( // Turn Left / Sharp Left
+                com.offlinemap.baghdad.data.model.LaneInfo("left", isActive = true),
+                com.offlinemap.baghdad.data.model.LaneInfo("through", isActive = false),
+                com.offlinemap.baghdad.data.model.LaneInfo("through", isActive = false),
+                com.offlinemap.baghdad.data.model.LaneInfo("right", isActive = false)
+            )
+            -1 -> listOf( // Slight Left / Keep Left
+                com.offlinemap.baghdad.data.model.LaneInfo("left", isActive = true),
+                com.offlinemap.baghdad.data.model.LaneInfo("through", isActive = true),
+                com.offlinemap.baghdad.data.model.LaneInfo("through", isActive = false),
+                com.offlinemap.baghdad.data.model.LaneInfo("right", isActive = false)
+            )
+            2, 3 -> listOf( // Turn Right / Sharp Right
+                com.offlinemap.baghdad.data.model.LaneInfo("left", isActive = false),
+                com.offlinemap.baghdad.data.model.LaneInfo("through", isActive = false),
+                com.offlinemap.baghdad.data.model.LaneInfo("through", isActive = false),
+                com.offlinemap.baghdad.data.model.LaneInfo("right", isActive = true)
+            )
+            1 -> listOf( // Slight Right / Exit / Ramp
+                com.offlinemap.baghdad.data.model.LaneInfo("left", isActive = false),
+                com.offlinemap.baghdad.data.model.LaneInfo("through", isActive = false),
+                com.offlinemap.baghdad.data.model.LaneInfo("through", isActive = true),
+                com.offlinemap.baghdad.data.model.LaneInfo("right", isActive = true)
+            )
+            0 -> if (isMajorAvenueOrHighway) listOf( // Straight on major road
+                com.offlinemap.baghdad.data.model.LaneInfo("left", isActive = false),
+                com.offlinemap.baghdad.data.model.LaneInfo("through", isActive = true),
+                com.offlinemap.baghdad.data.model.LaneInfo("through", isActive = true),
+                com.offlinemap.baghdad.data.model.LaneInfo("right", isActive = false)
+            ) else null
+            -6, 6 -> listOf( // U-Turn
+                com.offlinemap.baghdad.data.model.LaneInfo("left", isActive = true),
+                com.offlinemap.baghdad.data.model.LaneInfo("through", isActive = false),
+                com.offlinemap.baghdad.data.model.LaneInfo("right", isActive = false)
+            )
+            else -> null
+        }
     }
 
     fun close() {

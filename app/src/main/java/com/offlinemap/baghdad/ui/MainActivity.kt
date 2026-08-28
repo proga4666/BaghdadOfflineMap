@@ -12,6 +12,9 @@ import android.text.TextWatcher
 import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
+import android.graphics.Color
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -652,6 +655,45 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val remainingDistStr = GeoUtils.formatDistance(state.remainingDistanceMeters)
         val remainingDurationStr = GeoUtils.formatDuration(state.remainingTimeMillis)
         binding.tvNavTripMetrics.text = "Remaining: $remainingDistStr • $remainingDurationStr"
+
+        // Visual Lane Guidance Bar (Waze style)
+        val lanes = targetInst?.lanes
+        if (!lanes.isNullOrEmpty() && state.distanceToNextManeuverMeters <= 600.0) {
+            binding.containerLaneArrows.removeAllViews()
+            val density = resources.displayMetrics.density
+            val iconSize = (22 * density).toInt()
+            val marginSize = (4 * density).toInt()
+
+            for (lane in lanes) {
+                val iv = ImageView(this).apply {
+                    val lp = LinearLayout.LayoutParams(iconSize, iconSize).apply {
+                        marginEnd = marginSize
+                    }
+                    layoutParams = lp
+
+                    val iconDrawable = when (lane.direction) {
+                        "left", "sharp_left" -> R.drawable.ic_lane_left
+                        "right", "sharp_right" -> R.drawable.ic_lane_right
+                        "slight_left" -> R.drawable.ic_lane_left
+                        "slight_right" -> R.drawable.ic_lane_right
+                        else -> R.drawable.ic_lane_straight
+                    }
+                    setImageResource(iconDrawable)
+
+                    if (lane.isActive) {
+                        setColorFilter(Color.parseColor("#00E5FF"))
+                        alpha = 1.0f
+                    } else {
+                        setColorFilter(Color.parseColor("#78909C"))
+                        alpha = 0.45f
+                    }
+                }
+                binding.containerLaneArrows.addView(iv)
+            }
+            binding.layoutLaneGuidance.visibility = View.VISIBLE
+        } else {
+            binding.layoutLaneGuidance.visibility = View.GONE
+        }
     }
 
     private fun startLocationUpdates() {

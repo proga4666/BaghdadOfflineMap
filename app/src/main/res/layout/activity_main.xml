@@ -122,6 +122,37 @@
                     android:textColor="#B0BEC5"
                     android:textSize="12sp" />
 
+                <!-- Lane Guidance Visual Bar (Waze style) -->
+                <LinearLayout
+                    android:id="@+id/layoutLaneGuidance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_lane_guidance"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="5dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvLaneHint"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:text="Lanes:"
+                        android:textColor="#90CAF9"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/containerLaneArrows"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal" />
+                </LinearLayout>
+
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

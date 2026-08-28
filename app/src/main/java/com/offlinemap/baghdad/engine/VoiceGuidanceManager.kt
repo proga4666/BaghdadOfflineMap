@@ -114,18 +114,38 @@ class VoiceGuidanceManager(private val context: Context) : TextToSpeech.OnInitLi
         val turnPhrase = getTurnDirectionPhrase(instruction.sign)
         val distText = formatDistanceVoice(distanceMeters)
 
+        val laneAdviceAr = instruction.lanes?.let { lanes ->
+            val activeLeft = lanes.firstOrNull()?.isActive == true
+            val activeRight = lanes.lastOrNull()?.isActive == true
+            when {
+                activeLeft && !activeRight -> "، والزم المسار الأيسر"
+                activeRight && !activeLeft -> "، والزم المسار الأيمن"
+                else -> ""
+            }
+        } ?: ""
+
+        val laneAdviceEn = instruction.lanes?.let { lanes ->
+            val activeLeft = lanes.firstOrNull()?.isActive == true
+            val activeRight = lanes.lastOrNull()?.isActive == true
+            when {
+                activeLeft && !activeRight -> ", use the left lane"
+                activeRight && !activeLeft -> ", use the right lane"
+                else -> ""
+            }
+        } ?: ""
+
         val text = if (isArabic) {
             if (street.isNotBlank()) {
-                "بعد $distText ، $turnPhrase إلى $street"
+                "بعد $distText ، $turnPhrase إلى $street$laneAdviceAr"
             } else {
-                "بعد $distText ، $turnPhrase"
+                "بعد $distText ، $turnPhrase$laneAdviceAr"
             }
         } else {
             val englishTurn = getTurnDirectionPhraseEn(instruction.sign)
             if (street.isNotBlank()) {
-                "In $distText, $englishTurn onto $street"
+                "In $distText, $englishTurn onto $street$laneAdviceEn"
             } else {
-                "In $distText, $englishTurn"
+                "In $distText, $englishTurn$laneAdviceEn"
             }
         }
         speak(text, flush = true)
