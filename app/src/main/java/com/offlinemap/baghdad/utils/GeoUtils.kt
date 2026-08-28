@@ -79,4 +79,35 @@ object GeoUtils {
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return earthRadius * c
     }
+
+    /**
+     * Calculates perpendicular distance in meters from point P to line segment AB
+     */
+    fun distanceToSegment(p: LatLong, a: LatLong, b: LatLong): Double {
+        val l2 = calculateDistance(a, b)
+        if (l2 < 1.0) return calculateDistance(p, a)
+
+        val dx = b.longitude - a.longitude
+        val dy = b.latitude - a.latitude
+        val t = ((p.longitude - a.longitude) * dx + (p.latitude - a.latitude) * dy) / (dx * dx + dy * dy)
+        val clampedT = t.coerceIn(0.0, 1.0)
+
+        val projected = LatLong(a.latitude + clampedT * dy, a.longitude + clampedT * dx)
+        return calculateDistance(p, projected)
+    }
+
+    /**
+     * Calculates minimum distance in meters from point P to any segment along a polyline
+     */
+    fun minDistanceToPolyline(p: LatLong, points: List<LatLong>): Double {
+        if (points.isEmpty()) return Double.MAX_VALUE
+        if (points.size == 1) return calculateDistance(p, points[0])
+
+        var minD = Double.MAX_VALUE
+        for (i in 0 until points.size - 1) {
+            val d = distanceToSegment(p, points[i], points[i + 1])
+            if (d < minD) minD = d
+        }
+        return minD
+    }
 }

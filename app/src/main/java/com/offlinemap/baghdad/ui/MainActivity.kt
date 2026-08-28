@@ -99,7 +99,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
             onOffRoute = {
                 runOnUiThread {
                     Toast.makeText(this@MainActivity, "⚠️ Off route. Recalculating...", Toast.LENGTH_SHORT).show()
-                    viewModel.calculateRoute()
+                    lastGpsLocation?.let { loc ->
+                        val currentLoc = LatLong(loc.latitude, loc.longitude)
+                        isStartPointDynamicGps = true
+                        viewModel.setStartPoint(currentLoc)
+                        viewModel.calculateRoute()
+                    } ?: viewModel.calculateRoute()
                 }
             }
             onArrival = {
@@ -719,7 +724,14 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun displayRouteResult(route: RouteResult) {
         activeRouteResult = route
-        mapLibreEngine.displayRoute(route.points, route.boundingBox)
+
+        if (navigationTracker.isTracking) {
+            navigationTracker.updateReroute(route)
+            mapLibreEngine.displayRoute(route.points, route.boundingBox, fitCamera = false)
+        } else {
+            mapLibreEngine.displayRoute(route.points, route.boundingBox, fitCamera = true)
+            bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
+        }
 
         binding.bottomSheetRoute.tvRouteDistance.text = GeoUtils.formatDistance(route.distanceMeters)
         binding.bottomSheetRoute.tvRouteDuration.text = GeoUtils.formatDuration(route.timeMillis)
@@ -740,7 +752,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
 
         instructionAdapter.updateInstructions(route.instructions)
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
     }
 
     override fun onStart() {

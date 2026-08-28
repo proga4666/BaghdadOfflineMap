@@ -54,6 +54,27 @@ class NavigationTracker(private val voiceManager: VoiceGuidanceManager) {
         emitCurrentState(distanceToManeuver = firstInst?.distanceMeters ?: 0.0, remainingDistance = route.distanceMeters, remainingTime = route.timeMillis, isOffRoute = false, hasArrived = false)
     }
 
+    fun updateReroute(newRoute: RouteResult) {
+        activeRoute = newRoute
+        instructions = newRoute.instructions
+        currentStepIdx = 0
+        isNavigating = true
+        hasAnnouncedAdvance = false
+        hasAnnouncedImminent = false
+        hasAnnouncedExecute = false
+
+        Log.i("NavigationTracker", "Updated navigation with recalculated route (${instructions.size} steps).")
+
+        val firstInst = instructions.firstOrNull()
+        emitCurrentState(
+            distanceToManeuver = firstInst?.distanceMeters ?: 0.0,
+            remainingDistance = newRoute.distanceMeters,
+            remainingTime = newRoute.timeMillis,
+            isOffRoute = false,
+            hasArrived = false
+        )
+    }
+
     fun stopNavigation() {
         isNavigating = false
         activeRoute = null
@@ -81,18 +102,14 @@ class NavigationTracker(private val voiceManager: VoiceGuidanceManager) {
             }
         }
 
-        // 2. Check Off-Route Deviation (> 65m from any point on polyline)
-        var minPolyDistance = Double.MAX_VALUE
-        for (pt in route.points) {
-            val d = GeoUtils.calculateDistance(userLoc, pt)
-            if (d < minPolyDistance) minPolyDistance = d
-        }
+        // 2. Check Off-Route Deviation (> 38m perpendicular distance from active polyline)
+        val minPolyDistance = GeoUtils.minDistanceToPolyline(userLoc, route.points)
 
-        if (minPolyDistance > 65.0) {
+        if (minPolyDistance > 38.0) {
             val now = System.currentTimeMillis()
-            if (now - lastOffRouteTriggerTime > 12000L) { // Prevent alert spam
+            if (now - lastOffRouteTriggerTime > 6000L) { // Responsive rerouting without audio spam
                 lastOffRouteTriggerTime = now
-                Log.w("NavigationTracker", "Off-route detected! Distance from path: ${minPolyDistance.toInt()}m")
+                Log.w("NavigationTracker", "Off-route detected! Cross-track distance: ${minPolyDistance.toInt()}m")
                 voiceManager.speakRecalculating()
                 onOffRoute?.invoke()
                 emitCurrentState(0.0, 0.0, 0L, isOffRoute = true, hasArrived = false)

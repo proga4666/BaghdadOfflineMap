@@ -66,6 +66,9 @@ class MapLibreEngine(
         const val ROUTE_CASING_LAYER_ID = "baghdad_route_casing_layer"
         const val ROUTE_LAYER_ID = "baghdad_route_layer"
 
+        const val TRAVELED_ROUTE_SOURCE_ID = "baghdad_traveled_route_source"
+        const val TRAVELED_ROUTE_LAYER_ID = "baghdad_traveled_route_layer"
+
         const val MARKERS_SOURCE_ID = "baghdad_markers_source"
         const val MARKERS_LAYER_ID = "baghdad_markers_layer"
 
@@ -76,6 +79,8 @@ class MapLibreEngine(
         const val ICON_DEST = "icon_dest_pin"
         const val ICON_NAV_ARROW = "icon_nav_arrow"
     }
+
+    private var traveledRouteSource: GeoJsonSource? = null
 
     fun getStyleUriForPreset(preset: MapThemePreset): String {
         return when (preset) {
@@ -147,11 +152,27 @@ class MapLibreEngine(
     }
 
     private fun setupRouteLayers(style: Style) {
+        // 1. Traveled route layer (light gray behind user)
+        val tSource = GeoJsonSource(TRAVELED_ROUTE_SOURCE_ID)
+        style.addSource(tSource)
+        traveledRouteSource = tSource
+
+        val traveledLayer = LineLayer(TRAVELED_ROUTE_LAYER_ID, TRAVELED_ROUTE_SOURCE_ID).apply {
+            setProperties(
+                lineColor(Color.parseColor("#90A4AE")),
+                lineWidth(5f),
+                lineCap(Property.LINE_CAP_ROUND),
+                lineJoin(Property.LINE_JOIN_ROUND),
+                lineOpacity(0.55f)
+            )
+        }
+        style.addLayer(traveledLayer)
+
+        // 2. Active remaining route layers (vibrant blue ahead)
         val rSource = GeoJsonSource(ROUTE_SOURCE_ID)
         style.addSource(rSource)
         routeSource = rSource
 
-        // Route casing layer (darker outline)
         val casingLayer = LineLayer(ROUTE_CASING_LAYER_ID, ROUTE_SOURCE_ID).apply {
             setProperties(
                 lineColor(Color.parseColor("#0D47A1")),
@@ -162,11 +183,10 @@ class MapLibreEngine(
         }
         style.addLayer(casingLayer)
 
-        // Route main layer (vibrant blue)
         val mainLayer = LineLayer(ROUTE_LAYER_ID, ROUTE_SOURCE_ID).apply {
             setProperties(
-                lineColor(Color.parseColor("#2196F3")),
-                lineWidth(6f),
+                lineColor(Color.parseColor("#00E5FF")),
+                lineWidth(6.5f),
                 lineCap(Property.LINE_CAP_ROUND),
                 lineJoin(Property.LINE_JOIN_ROUND)
             )
@@ -202,21 +222,36 @@ class MapLibreEngine(
                 iconAllowOverlap(true),
                 iconIgnorePlacement(true),
                 iconAnchor(Property.ICON_ANCHOR_CENTER),
-                iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP)
+                iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
+                iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_MAP)
             )
         }
         style.addLayer(userSymbolLayer)
     }
 
     fun setUserLocation(latLong: LatLong, accuracy: Float = 0f, bearing: Float = 0f) {
+        val prevLoc = lastUserLocation
+        val prevBearing = lastUserBearing
+        val isFirst = (prevLoc == null)
+
         lastUserLocation = latLong
         lastUserBearing = bearing
 
-        val pt = Point.fromLngLat(latLong.longitude, latLong.latitude)
-        val feature = Feature.fromGeometry(pt).apply {
-            addNumberProperty("bearing", bearing)
+        val distMoved = if (prevLoc != null) GeoUtils.calculateDistance(prevLoc, latLong) else 999.0
+        val bearingDiff = kotlin.math.abs(prevBearing - bearing)
+
+        // Throttle GeoJSON updates to eliminate flickering
+        if (isFirst || distMoved > 0.4 || bearingDiff > 1.2f) {
+            val pt = Point.fromLngLat(latLong.longitude, latLong.latitude)
+            val feature = Feature.fromGeometry(pt).apply {
+                addNumberProperty("bearing", bearing)
+            }
+            userLocationSource?.setGeoJson(FeatureCollection.fromFeatures(listOf(feature)))
         }
-        userLocationSource?.setGeoJson(FeatureCollection.fromFeatures(listOf(feature)))
+
+        if (activeRoutePoints != null) {
+            updateRouteProgress(latLong)
+        }
 
         val map = mapLibreMap ?: return
         if (!isTrackingSuspended) {
@@ -231,13 +266,50 @@ class MapLibreEngine(
                     val camera = CameraPosition.Builder()
                         .target(LatLng(latLong.latitude, latLong.longitude))
                         .bearing(bearing.toDouble())
-                        .tilt(45.0)
-                        .zoom(16.5)
+                        .tilt(48.0)
+                        .zoom(16.8)
                         .build()
                     map.easeCamera(CameraUpdateFactory.newCameraPosition(camera), 350)
                 }
                 MapEngine.TrackingMode.FREE -> {}
             }
+        }
+    }
+
+    fun updateRouteProgress(userLoc: LatLong) {
+        val points = activeRoutePoints ?: return
+        if (points.size < 2) return
+
+        var closestIdx = 0
+        var minDistance = Double.MAX_VALUE
+        for (i in 0 until points.size - 1) {
+            val dist = GeoUtils.calculateDistance(userLoc, points[i])
+            if (dist < minDistance) {
+                minDistance = dist
+                closestIdx = i
+            }
+        }
+
+        val traveledPoints = mutableListOf<Point>()
+        for (i in 0..closestIdx) {
+            traveledPoints.add(Point.fromLngLat(points[i].longitude, points[i].latitude))
+        }
+        traveledPoints.add(Point.fromLngLat(userLoc.longitude, userLoc.latitude))
+
+        val remainingPoints = mutableListOf<Point>()
+        remainingPoints.add(Point.fromLngLat(userLoc.longitude, userLoc.latitude))
+        for (i in (closestIdx + 1) until points.size) {
+            remainingPoints.add(Point.fromLngLat(points[i].longitude, points[i].latitude))
+        }
+
+        if (traveledPoints.size >= 2) {
+            val traveledLine = Feature.fromGeometry(LineString.fromLngLats(traveledPoints))
+            traveledRouteSource?.setGeoJson(FeatureCollection.fromFeatures(listOf(traveledLine)))
+        }
+
+        if (remainingPoints.size >= 2) {
+            val remainingLine = Feature.fromGeometry(LineString.fromLngLats(remainingPoints))
+            routeSource?.setGeoJson(FeatureCollection.fromFeatures(listOf(remainingLine)))
         }
     }
 
@@ -273,7 +345,7 @@ class MapLibreEngine(
                     .target(LatLng(loc.latitude, loc.longitude))
                     .tilt(48.0)
                     .bearing(lastUserBearing.toDouble())
-                    .zoom(16.5)
+                    .zoom(16.8)
                     .build()
                 if (animated) map.animateCamera(CameraUpdateFactory.newCameraPosition(pos), 500)
                 else map.cameraPosition = pos
@@ -310,10 +382,15 @@ class MapLibreEngine(
     private fun updateMarkers() {
         val features = mutableListOf<Feature>()
 
-        startPointLatLong?.let {
-            val f = Feature.fromGeometry(Point.fromLngLat(it.longitude, it.latitude))
-            f.addStringProperty("type", ICON_START)
-            features.add(f)
+        // Delete green marker on current location: Only show start marker if not at live user location
+        startPointLatLong?.let { start ->
+            val userLoc = lastUserLocation
+            val isAtUserLoc = (userLoc != null && GeoUtils.calculateDistance(userLoc, start) < 35.0)
+            if (!isAtUserLoc) {
+                val f = Feature.fromGeometry(Point.fromLngLat(start.longitude, start.latitude))
+                f.addStringProperty("type", ICON_START)
+                features.add(f)
+            }
         }
 
         destPointLatLong?.let {
@@ -342,10 +419,7 @@ class MapLibreEngine(
             setupUserLocationLayer(style)
             updateMarkers()
             activeRoutePoints?.let { pts ->
-                val coords = pts.map { Point.fromLngLat(it.longitude, it.latitude) }
-                val lineString = LineString.fromLngLats(coords)
-                val feature = Feature.fromGeometry(lineString)
-                routeSource?.setGeoJson(FeatureCollection.fromFeatures(listOf(feature)))
+                displayRoute(pts)
             }
             lastUserLocation?.let { loc ->
                 setUserLocation(loc, 0f, lastUserBearing)
@@ -353,21 +427,23 @@ class MapLibreEngine(
         }
     }
 
-    fun displayRoute(points: List<LatLong>, boundingBox: org.mapsforge.core.model.BoundingBox? = null) {
+    fun displayRoute(points: List<LatLong>, boundingBox: org.mapsforge.core.model.BoundingBox? = null, fitCamera: Boolean = true) {
         activeRoutePoints = points
         if (points.size < 2) {
             clearRoute()
             return
         }
 
+        traveledRouteSource?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+
         val coords = points.map { Point.fromLngLat(it.longitude, it.latitude) }
         val lineString = LineString.fromLngLats(coords)
         val feature = Feature.fromGeometry(lineString)
         routeSource?.setGeoJson(FeatureCollection.fromFeatures(listOf(feature)))
 
-        // Fit camera to route bounds smoothly
+        // Fit camera to route bounds smoothly only when requested & not following GPS
         val map = mapLibreMap ?: return
-        if (points.size >= 2) {
+        if (fitCamera && trackingMode == MapEngine.TrackingMode.FREE && points.size >= 2) {
             val boundsBuilder = LatLngBounds.Builder()
             for (p in points) {
                 boundsBuilder.include(LatLng(p.latitude, p.longitude))
@@ -379,6 +455,7 @@ class MapLibreEngine(
 
     fun clearRoute() {
         activeRoutePoints = null
+        traveledRouteSource?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
         routeSource?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
     }
 

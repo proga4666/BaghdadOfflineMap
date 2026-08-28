@@ -26,12 +26,14 @@ class CompassSensorManager(context: Context) : SensorEventListener {
 
     var onAzimuthChanged: ((Float) -> Unit)? = null
 
+    private var lastEmitTime = 0L
+
     fun start() {
         if (rotationSensor != null) {
-            sensorManager.registerListener(this, rotationSensor, SensorManager.SENSOR_DELAY_GAME)
+            sensorManager.registerListener(this, rotationSensor, SensorManager.SENSOR_DELAY_UI)
         } else {
-            if (accelSensor != null) sensorManager.registerListener(this, accelSensor, SensorManager.SENSOR_DELAY_GAME)
-            if (magnetSensor != null) sensorManager.registerListener(this, magnetSensor, SensorManager.SENSOR_DELAY_GAME)
+            if (accelSensor != null) sensorManager.registerListener(this, accelSensor, SensorManager.SENSOR_DELAY_UI)
+            if (magnetSensor != null) sensorManager.registerListener(this, magnetSensor, SensorManager.SENSOR_DELAY_UI)
         }
     }
 
@@ -79,7 +81,9 @@ class CompassSensorManager(context: Context) : SensorEventListener {
 
         currentAzimuth = (currentAzimuth + diff * smoothingAlpha + 360) % 360
 
-        if (abs(diff) > 0.5f) {
+        val now = System.currentTimeMillis()
+        if (abs(diff) > 1.8f && now - lastEmitTime >= 65L) {
+            lastEmitTime = now
             onAzimuthChanged?.invoke(currentAzimuth)
         }
     }
